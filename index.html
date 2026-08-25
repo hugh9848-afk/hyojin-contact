@@ -125,32 +125,44 @@
   <div id="view-home" class="view active">
     <div class="sub">문의해주셔서 감사합니다<br>메뉴를 터치하여 메모 남겨주시면 확인 후 연락드리겠습니다.</div>
     <div class="card">
-      <button class="btn" onclick="showView('view-new')">1. 신규등록 문의
+      <button class="btn" onclick="showView('view-new')">1. 신규상담 문의
         <span class="desc">전공별 상담 신청서 작성</span>
       </button>
-      <a class="btn" target="_blank" rel="noopener" href="https://forms.gle/XjfUkPteyBURgrP19">2. 결석 전달 (수업영상요청)
-        <span class="desc">수업영상 및 자료요청</span>
-      </a>
-      <a class="btn" target="_blank" rel="noopener" href="https://forms.gle/sQMyGcSiT1UvQqxe6">3. 재원생 기타문의
-        <span class="desc">작성해주시면 업무시간 중 회신 드리겠습니다.(평일 오후 5~9시, 주말 오전 9시~오후10시) 문자메시지로 남겨주셔도 됩니다.</span>
-      </a>
+      <button class="btn" onclick="showView('view-existing')">2. 재원생 문의
+        <span class="desc">상담 신청 및 결석 전달(수업영상요청)</span>
+      </button>
     </div>
   </div>
 
-  <!-- 1: 신규등록 문의 -->
+  <!-- 1: 신규상담 문의 -->
   <div id="view-new" class="view">
     <a class="back" onclick="showView('view-home')">&larr; 처음으로</a>
-    <h1>신규등록 문의</h1>
+    <h1>신규상담 문의</h1>
     <div class="sub">전공어를 선택해주세요</div>
     <div class="card">
       <a class="btn lang" target="_blank" rel="noopener"
-         href="https://docs.google.com/forms/d/1vKQjZbO_OOzIig8oXDuuuHkIGk5PuJJ-R_mERCinyOw/viewform">일본어 등록 상담 신청서</a>
+         href="https://docs.google.com/forms/d/1vKQjZbO_OOzIig8oXDuuuHkIGk5PuJJ-R_mERCinyOw/viewform">일본어 내신반 상담 신청서</a>
       <a class="btn lang" target="_blank" rel="noopener"
-         href="https://docs.google.com/forms/d/1vz2h2ETs43h8DMz9YeTA_TJtqLEFaMIoX_66kiezvu8/viewform">중국어 등록 상담 신청서</a>
+         href="https://docs.google.com/forms/d/1vz2h2ETs43h8DMz9YeTA_TJtqLEFaMIoX_66kiezvu8/viewform">중국어 내신반 상담 신청서</a>
       <a class="btn lang" target="_blank" rel="noopener"
-         href="https://docs.google.com/forms/d/1_oxarHMkSWiVQEKMVWFwqd2nv7U6cD9vRvauVxHMALI/viewform">독일어 등록 상담 신청서</a>
+         href="https://docs.google.com/forms/d/1_oxarHMkSWiVQEKMVWFwqd2nv7U6cD9vRvauVxHMALI/viewform">독일어 내신반 상담 신청서</a>
       <a class="btn lang" target="_blank" rel="noopener"
-         href="https://docs.google.com/forms/d/1GC2psya3fffawZwrX1wLypYLiF_7ZQ1L1lGVvaZaN-8/viewform">프랑스어 등록 상담 신청서</a>
+         href="https://docs.google.com/forms/d/1GC2psya3fffawZwrX1wLypYLiF_7ZQ1L1lGVvaZaN-8/viewform">프랑스어 내신반 상담 신청서</a>
+    </div>
+  </div>
+
+  <!-- 2: 재원생 문의 -->
+  <div id="view-existing" class="view">
+    <a class="back" onclick="showView('view-home')">&larr; 처음으로</a>
+    <h1>재원생 문의</h1>
+    <div class="sub">항목을 선택해주세요</div>
+    <div class="card">
+      <a class="btn" target="_blank" rel="noopener" href="https://forms.gle/sQMyGcSiT1UvQqxe6">1. 재원생 상담 신청
+        <span class="desc">작성해주시면 업무시간 중 회신 드리겠습니다.(평일 오후 5~9시, 주말 오전 9시~오후10시) 문자메시지로 남겨주셔도 됩니다.</span>
+      </a>
+      <a class="btn" target="_blank" rel="noopener" href="https://forms.gle/XjfUkPteyBURgrP19">2. 결석 전달 (수업영상요청)
+        <span class="desc">수업영상 및 자료요청</span>
+      </a>
     </div>
   </div>
 
