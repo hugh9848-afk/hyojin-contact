@@ -55,6 +55,8 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
     font-size:11.5px;font-weight:700;vertical-align:middle}
   .b-pay{background:#e2f0ea;color:#20624a}
   .b-un{background:#fdeaea;color:#b02a2a}
+  .b-etc{background:#eef0f3;color:#5a6270}
+  .paynote{font-size:13px;color:#8a90a0;padding:2px 0 10px;border-bottom:1px solid #eef0f3}
   .mini{background:#fff;border:1px solid #d5d8dd;border-radius:8px;padding:7px 10px;
     font-size:13.5px;cursor:pointer;font-family:inherit;white-space:nowrap;color:#333;
     text-decoration:none;display:inline-block}
@@ -289,7 +291,10 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
       var k = mkey(CUR.ab, ym), c = MCACHE[k];
       if (c && (new Date().getTime() - c.t) < FRESH) return;
       ask({ api: 'month', ab: CUR.ab, ym: ym }, function (r) {
-        if (r && r.ok) MCACHE[k] = { t: new Date().getTime(), data: r };
+        if (!r || !r.ok) return;
+        MCACHE[k] = { t: new Date().getTime(), data: r };
+        // 명단을 보고 있는데 이번 달엔 납부 정보가 없었다면, 이제 채워서 다시 그립니다
+        if (TAB === 'roster' && MONTH && !MONTH.hasPay && r.hasPay) render();
       }, function () {});
     });
   }
@@ -313,17 +318,37 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
   }
 
   /* ── 반별명단 ───────────────────────────────────────── */
+  /* 납부 정보는 학원이 "다음 달분"을 미리 청구하는 달이 있어서,
+     이번 달에 없으면 미리 받아둔 다음 달 것을 씁니다. */
+  function paySource() {
+    if (MONTH && MONTH.hasPay) return { data: MONTH, ym: YM };
+    var nx = MCACHE[mkey(CUR.ab, ymShift(YM, 1))];
+    if (nx && nx.data && nx.data.hasPay) return { data: nx.data, ym: ymShift(YM, 1) };
+    return null;
+  }
+
+  function badgeClass(st) {
+    if (/미납|연체/.test(st)) return 'b-un';
+    if (/납부|완납|수납|입금|^등록$/.test(st)) return 'b-pay';
+    return 'b-etc';                       // 청구전 · 등록대기 등
+  }
+
   function rosterHtml() {
-    var payOf = {};
-    if (MONTH && MONTH.students) {
-      MONTH.students.forEach(function (s) { if (s.pay) payOf[s.n] = s.pay; });
+    var src = paySource(), payOf = {}, payMonth = '';
+    if (src) {
+      payMonth = (+src.ym.split('-')[1]) + '월 ';
+      (src.data.students || []).forEach(function (s) { if (s.pay) payOf[s.n] = s.pay; });
     }
+
     var h = '<div class="card">';
+    if (!src) {
+      h += '<div class="paynote">아직 이 달 수강료 청구 정보가 없습니다.</div>';
+    }
     CUR.students.forEach(function (s, i) {
       var pay = payOf[s.n], badge = '';
       if (pay) {
-        var paid = /납부|완납|수납/.test(String(pay.st));
-        badge = '<span class="badge ' + (paid ? 'b-pay' : 'b-un') + '">' + esc(pay.st) + '</span>';
+        badge = '<span class="badge ' + badgeClass(String(pay.st)) + '">'
+              + payMonth + esc(pay.st) + '</span>';
       }
       h += '<div class="stu">'
         +  '<div class="nm"><b>' + esc(s.n) + '</b>' + badge + '</div>'
