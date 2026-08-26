@@ -182,5 +182,33 @@ function showView(id){
 }
 
 </script>
+<script>
+(function () {
+  function applyView(id) {
+    document.querySelectorAll('.view').forEach(function (v) {
+      v.classList.remove('active');
+    });
+    var el = document.getElementById(id);
+    if (el) el.classList.add('active');
+    window.scrollTo(0, 0);
+  }
+
+  window.showView = function (id) {
+    applyView(id);
+    history.pushState({ view: id }, '', '#' + id);
+  };
+
+  window.addEventListener('popstate', function (e) {
+    var id = (e.state && e.state.view) || 'view-home';
+    if (!document.getElementById(id)) id = 'view-home';
+    applyView(id);
+  });
+
+  var start = (location.hash || '').replace('#', '');
+  if (!start || !document.getElementById(start)) start = 'view-home';
+  history.replaceState({ view: start }, '', '#' + start);
+  applyView(start);
+})();
+</script>
 </body>
 </html>
