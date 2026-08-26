@@ -86,7 +86,7 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
   .cell.lock{cursor:default;color:#bbb}
   .cell.out{background:#efefef;cursor:default;color:#ccc}
   .cell.hol{background:#d9d9d9;cursor:default;color:#888}
-  .cell.busy{opacity:.45}
+  .cell.busy{opacity:.62}
   .legend{margin-top:10px;font-size:12.5px;color:#778;text-align:center}
   .legend i{font-style:normal;display:inline-block;width:13px;height:13px;border-radius:3px;
     vertical-align:-2px;margin:0 3px 0 10px;border:1px solid rgba(0,0,0,.08)}
@@ -145,7 +145,17 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
 
   /* ── 서버와 이야기하기 (JSONP) ─────────────────────── */
   var seq = 0;
+
+  /* 구글 서버가 자다 깨느라 첫 요청이 늦을 때가 있어 한 번 더 시도합니다.
+     단 '결석확인'은 메일이 나가므로 다시 보내지 않습니다. */
   function ask(params, ok, fail) {
+    askOnce(params, ok, function (e) {
+      if (params.api === 'absent') return fail(e);
+      askOnce(params, ok, fail);
+    });
+  }
+
+  function askOnce(params, ok, fail) {
     var name = '__hj_' + (++seq);
     var s = document.createElement('script'), timer;
     function cleanup() {
@@ -198,7 +208,14 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
   }
 
   function fatal(msg) {
-    $('body').innerHTML = '<div class="card"><div class="msg err">' + esc(msg) + '</div></div>';
+    $('body').innerHTML = '<div class="card"><div class="msg err">' + esc(msg) + '</div>'
+      + '<div style="text-align:center;padding-bottom:8px">'
+      + '<button class="back" id="again">다시 시도</button></div></div>';
+    var a = $('again');
+    if (a) a.addEventListener('click', function () {
+      $('body').innerHTML = '<div class="msg">불러오는 중…</div>';
+      start();
+    });
   }
 
   function showList() {
@@ -341,7 +358,8 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
         else if (!canEdit(m.d)) cl += ' lock';
         if (!m.out && !hol && m.m) style = ' style="background:' + (COLOR[m.m] || '#fff') + '"';
         h += '<td class="' + cl + '"' + style
-          +  ' data-d="' + m.d + '" data-n="' + esc(s.n) + '">' + esc(m.m) + '</td>';
+          +  ' data-d="' + m.d + '" data-n="' + esc(s.n) + '"'
+          +  ' data-saved="' + esc(m.m) + '">' + esc(m.m) + '</td>';
       });
       h += '</tr>';
     });
@@ -383,32 +401,51 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
     bindTabs();
   }
 
+  /* 터치는 즉시 반영하고 저장은 뒤에서 합니다.
+     저장이 끝나기 전에 또 눌러도 막지 않습니다 — 마지막 값만 보냅니다. */
+  var saveTurn = {};
+
   function cycle(td) {
-    if (td.classList.contains('busy')) return;
     var cur  = td.textContent.trim();
     var next = CYCLE[(CYCLE.indexOf(cur) + 1) % CYCLE.length];
-    var d = td.getAttribute('data-d'), n = td.getAttribute('data-n');
 
     td.textContent = next;
     td.style.background = COLOR[next] || '#fff';
     td.classList.add('busy');
 
-    ask({ api: 'mark', ab: CUR.ab, date: d, student: n, mark: next }, function (r) {
+    var key = td.getAttribute('data-d') + '|' + td.getAttribute('data-n');
+    saveTurn[key] = (saveTurn[key] || 0) + 1;
+    var turn = saveTurn[key];
+
+    clearTimeout(td._timer);
+    td._timer = setTimeout(function () { sendMark(td, key, turn); }, 350);
+  }
+
+  function sendMark(td, key, turn) {
+    var d = td.getAttribute('data-d'), n = td.getAttribute('data-n');
+    var val = td.textContent.trim();
+
+    ask({ api: 'mark', ab: CUR.ab, date: d, student: n, mark: val }, function (r) {
+      if (turn !== saveTurn[key]) return;          // 그 사이 또 눌렀으면 이 응답은 버립니다
       td.classList.remove('busy');
-      if (!r || !r.ok) {
-        td.textContent = cur;
-        td.style.background = COLOR[cur] || '#fff';
-        return toast((r && r.msg) || '저장하지 못했습니다.', true);
-      }
-      var st = null;
-      (MONTH.students || []).forEach(function (s) { if (s.n === n) st = s; });
-      if (st) st.marks.forEach(function (m) { if (m.d === d) m.m = next; });
+      if (!r || !r.ok) return undo(td, (r && r.msg) || '저장하지 못했습니다.');
+      td.setAttribute('data-saved', val);
+      (MONTH.students || []).forEach(function (s) {
+        if (s.n !== n) return;
+        s.marks.forEach(function (m) { if (m.d === d) m.m = val; });
+      });
     }, function (e) {
+      if (turn !== saveTurn[key]) return;
       td.classList.remove('busy');
-      td.textContent = cur;
-      td.style.background = COLOR[cur] || '#fff';
-      toast('저장하지 못했습니다: ' + e.message, true);
+      undo(td, '저장하지 못했습니다: ' + e.message);
     });
+  }
+
+  function undo(td, msg) {
+    var back = td.getAttribute('data-saved') || '';
+    td.textContent = back;
+    td.style.background = COLOR[back] || '#fff';
+    toast(msg, true);
   }
 
   $('back').addEventListener('click', function () {
