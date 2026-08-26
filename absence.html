@@ -117,29 +117,92 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
     document.body.appendChild(s);
   }
 
-  /* ── 반 목록 불러오기 ────────────────────────────────── */
+  /* ── 앞으로의 수업일 계산 (브라우저에서 바로 — 물어보지 않습니다) ── */
+  var DAYNUM = { '일':0, '월':1, '화':2, '수':3, '목':4, '금':5, '토':6 };
+  function upcoming(dayKo, holidays, howMany) {
+    var target = DAYNUM[String(dayKo || '').charAt(0)];
+    if (target === undefined) return [];
+    holidays = holidays || [];
+    var d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + ((target - d.getDay() + 7) % 7));
+    var out = [];
+    for (var i = 0; i < 30 && out.length < (howMany || 8); i++) {
+      var s = d.getFullYear() + '-' +
+              ('0' + (d.getMonth() + 1)).slice(-2) + '-' +
+              ('0' + d.getDate()).slice(-2);
+      if (holidays.indexOf(s) < 0) out.push(s);
+      d.setDate(d.getDate() + 7);
+    }
+    return out;
+  }
+
+  /* ── 반 목록 채우기 ──────────────────────────────────── */
+  function paintClasses(keepValue) {
+    var names = Object.keys(DATA);
+    cls.innerHTML = '<option value="">— 반을 선택하세요 —</option>';
+    names.forEach(function (n) {
+      var o = document.createElement('option');
+      o.value = n;
+      o.textContent = n + '  (' + DATA[n].day + ' ' + DATA[n].time + ')';
+      cls.appendChild(o);
+    });
+    cls.disabled = false;
+    if (keepValue && DATA[keepValue]) cls.value = keepValue;
+  }
+
+  /* ① GitHub에 미리 넣어둔 목록 — 즉시 뜹니다 */
+  function loadBaked(done) {
+    var x = new XMLHttpRequest();
+    x.open('GET', 'classes.json?t=' + Date.now(), true);
+    x.onreadystatechange = function () {
+      if (x.readyState !== 4) return;
+      var ok = false;
+      if (x.status >= 200 && x.status < 300) {
+        try {
+          var j = JSON.parse(x.responseText);
+          if (j && j.classes && Object.keys(j.classes).length) { DATA = j.classes; ok = true; }
+        } catch (e) {}
+      }
+      done(ok);
+    };
+    x.onerror = function () { done(false); };
+    x.send();
+  }
+
+  /* ② 구글에서 최신본을 조용히 받아 맞춰둡니다 (화면은 이미 떠 있음) */
+  function refreshFromServer(showErrors) {
+    ask({ api: 'classes' }, function (res) {
+      if (!res || !res.ok || !res.classes || !Object.keys(res.classes).length) {
+        if (showErrors) loadFailed('목록을 받지 못했습니다.');
+        return;
+      }
+      var before = JSON.stringify(DATA);
+      if (before === JSON.stringify(res.classes)) return;   // 달라진 게 없으면 그대로
+      var keep = cls.value;
+      DATA = res.classes;
+      paintClasses(keep);
+      if (keep && DATA[keep]) fillFor(keep, date.value, stu.value);
+      err.textContent = '';
+      again.style.display = 'none';
+    }, function (e) {
+      if (showErrors) loadFailed(e.message);
+    });
+  }
+
   function loadClasses() {
     err.textContent = '';
     again.style.display = 'none';
     cls.disabled = true;
     cls.innerHTML = '<option value="">불러오는 중…</option>';
 
-    ask({ api: 'classes' }, function (res) {
-      if (!res || !res.ok || !res.classes) { return loadFailed('목록을 받지 못했습니다.'); }
-      DATA = res.classes;
-      var names = Object.keys(DATA);
-      if (!names.length) { return loadFailed('등록된 반이 없습니다.'); }
-
-      cls.innerHTML = '<option value="">— 반을 선택하세요 —</option>';
-      names.forEach(function (n) {
-        var o = document.createElement('option');
-        o.value = n;
-        o.textContent = n + '  (' + DATA[n].day + ' ' + DATA[n].time + ')';
-        cls.appendChild(o);
-      });
-      cls.disabled = false;
-    }, function (e) {
-      loadFailed(e.message);
+    loadBaked(function (ok) {
+      if (ok) {
+        paintClasses();          // 바로 쓸 수 있게
+        refreshFromServer(false); // 뒤에서 최신으로 맞춤
+      } else {
+        refreshFromServer(true);  // 미리 넣어둔 게 없으면 구글에서 받아옴
+      }
     });
   }
 
@@ -165,20 +228,28 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
     sel.disabled = false;
   }
 
-  cls.addEventListener('change', function () {
-    other.style.display = 'none'; other.value = ''; err.textContent = '';
-    var c = DATA && DATA[cls.value];
+  function fillFor(className, keepDate, keepStu) {
+    var c = DATA && DATA[className];
     if (!c) { date.disabled = stu.disabled = true; return check(); }
 
-    fill(date, c.dates.map(function (d) {
+    var days = upcoming(c.day, c.holidays, 8);   // 날짜는 항상 브라우저에서 계산
+    fill(date, days.map(function (d) {
       var p = d.split('-'), dt = new Date(+p[0], +p[1] - 1, +p[2]);
       return { v: d, t: (+p[1]) + '월 ' + (+p[2]) + '일 (' + DOW[dt.getDay()] + ')' };
     }), '— 날짜를 선택하세요 —');
+    if (keepDate && days.indexOf(keepDate) >= 0) date.value = keepDate;
 
     var ss = c.students.map(function (s) { return { v: s, t: s }; });
     ss.push({ v: '__OTHER__', t: '명단에 없어요 (직접 입력)' });
     fill(stu, ss, '— 학생을 선택하세요 —');
+    if (keepStu && (keepStu === '__OTHER__' || c.students.indexOf(keepStu) >= 0)) stu.value = keepStu;
+
     check();
+  }
+
+  cls.addEventListener('change', function () {
+    other.style.display = 'none'; other.value = ''; err.textContent = '';
+    fillFor(cls.value);
   });
 
   stu.addEventListener('change', function () {
