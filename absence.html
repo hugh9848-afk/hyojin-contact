@@ -239,10 +239,14 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
     }), '— 날짜를 선택하세요 —');
     if (keepDate && days.indexOf(keepDate) >= 0) date.value = keepDate;
 
-    var ss = c.students.map(function (s) { return { v: s, t: s }; });
+    // 이름만 오는 옛 형식과, 표시용 이름이 함께 오는 새 형식 둘 다 받습니다
+    var ss = c.students.map(function (s) {
+      return (typeof s === 'string') ? { v: s, t: s } : { v: s.n, t: s.label || s.n };
+    });
     ss.push({ v: '__OTHER__', t: '명단에 없어요 (직접 입력)' });
     fill(stu, ss, '— 학생을 선택하세요 —');
-    if (keepStu && (keepStu === '__OTHER__' || c.students.indexOf(keepStu) >= 0)) stu.value = keepStu;
+    var names = ss.map(function (x) { return x.v; });
+    if (keepStu && names.indexOf(keepStu) >= 0) stu.value = keepStu;
 
     check();
   }
