@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>효진외국어학원</title>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   ↓↓↓ 여기 한 줄만 고치면 됩니다 ↓↓↓
+   구글 스크립트 편집기 → 배포 → 배포 관리 의 웹 앱 URL.
+   absence.html 에 넣은 것과 똑같은 주소입니다. (/exec 로 끝남)
+   ═══════════════════════════════════════════════════════════ */
+var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sWn_OVPfjYdS-iEeLll5d3U4nyf0-XfEtr1CsSHv/exec";
+</script>
+
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#f6f7f9;color:#1a1a1a;
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    line-height:1.5;-webkit-text-size-adjust:100%}
+  .wrap{max-width:720px;margin:0 auto;padding:16px 14px 60px}
+
+  .top{display:flex;align-items:center;gap:10px;margin-bottom:14px;min-height:34px}
+  .top h1{font-size:17px;margin:0;font-weight:700;flex:1;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .who{font-size:13px;color:#667}
+  .back{background:#fff;border:1px solid #d5d8dd;border-radius:8px;padding:6px 11px;
+    font-size:14px;cursor:pointer;font-family:inherit;color:#2f6fdb;font-weight:600}
+
+  .card{background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);
+    padding:14px;margin-bottom:12px}
+  .msg{padding:26px 14px;text-align:center;color:#777;font-size:15px}
+  .err{color:#c0392b}
+
+  /* 반 목록 */
+  .clsbtn{display:block;width:100%;text-align:left;background:#fff;border:0;
+    border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);padding:14px;margin-bottom:10px;
+    cursor:pointer;font-family:inherit}
+  .clsbtn .nm{font-size:16px;font-weight:700}
+  .clsbtn .sub{font-size:13px;color:#667;margin-top:3px}
+
+  /* 탭 */
+  .tabs{display:flex;gap:6px;margin-bottom:12px}
+  .tab{flex:1;padding:10px;border:1px solid #d5d8dd;background:#fff;border-radius:9px;
+    font-size:15px;font-weight:600;color:#667;cursor:pointer;font-family:inherit}
+  .tab.on{background:#2f6fdb;border-color:#2f6fdb;color:#fff}
+
+  /* 명단 */
+  .stu{display:flex;align-items:center;gap:8px;padding:11px 0;border-bottom:1px solid #eef0f3}
+  .stu:last-child{border-bottom:0}
+  .stu .nm{flex:1;min-width:0}
+  .stu .nm b{font-size:15.5px;font-weight:600}
+  .badge{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:9px;
+    font-size:11.5px;font-weight:700;vertical-align:middle}
+  .b-pay{background:#e2f0ea;color:#20624a}
+  .b-un{background:#fdeaea;color:#b02a2a}
+  .mini{background:#fff;border:1px solid #d5d8dd;border-radius:8px;padding:7px 10px;
+    font-size:13.5px;cursor:pointer;font-family:inherit;white-space:nowrap;color:#333;
+    text-decoration:none;display:inline-block}
+  .mini.warn{color:#b45309;border-color:#e6cfa4;background:#fffaf0}
+
+  /* 출석부 */
+  .mon{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:10px}
+  .mon button{background:#fff;border:1px solid #d5d8dd;border-radius:8px;width:38px;height:34px;
+    font-size:16px;cursor:pointer;font-family:inherit}
+  .mon .lbl{font-size:16px;font-weight:700;min-width:110px;text-align:center}
+  .gridwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;background:#fff;
+    border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  table{border-collapse:separate;border-spacing:0;font-size:14px;min-width:100%}
+  th,td{padding:0;margin:0}
+  .hname,.cname{position:sticky;left:0;background:#fff;z-index:2;
+    min-width:96px;max-width:96px;padding:8px 10px;text-align:left;
+    border-right:1px solid #e3e6ea;border-bottom:1px solid #eef0f3;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hname{background:#f7f8fa;font-size:12px;color:#667;font-weight:600}
+  .hdate{min-width:54px;padding:7px 4px;text-align:center;font-size:12px;line-height:1.25;
+    background:#f7f8fa;color:#445;border-bottom:1px solid #e3e6ea;font-weight:600;
+    border-left:1px solid #eef0f3;cursor:default}
+  .hdate.adm{cursor:pointer}
+  .hdate .dw{display:block;font-size:10.5px;color:#8a90a0;font-weight:500}
+  .hdate.hol{background:#e6e6e6;color:#777}
+  .cell{min-width:54px;height:40px;text-align:center;font-size:13.5px;font-weight:600;
+    border-left:1px solid #eef0f3;border-bottom:1px solid #eef0f3;cursor:pointer;
+    -webkit-user-select:none;user-select:none}
+  .cell.lock{cursor:default;color:#bbb}
+  .cell.out{background:#efefef;cursor:default;color:#ccc}
+  .cell.hol{background:#d9d9d9;cursor:default;color:#888}
+  .cell.busy{opacity:.45}
+  .legend{margin-top:10px;font-size:12.5px;color:#778;text-align:center}
+  .legend i{font-style:normal;display:inline-block;width:13px;height:13px;border-radius:3px;
+    vertical-align:-2px;margin:0 3px 0 10px;border:1px solid rgba(0,0,0,.08)}
+
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);
+    background:#222;color:#fff;padding:11px 16px;border-radius:10px;font-size:14px;
+    max-width:88%;text-align:center;opacity:0;pointer-events:none;transition:opacity .18s;z-index:50}
+  .toast.on{opacity:.94}
+  .toast.bad{background:#b02a2a}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <button class="back" id="back" style="display:none">← 뒤로</button>
+    <h1 id="title">효진외국어학원</h1>
+    <span class="who" id="who"></span>
+  </div>
+  <div id="body"><div class="msg">불러오는 중…</div></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var V = (function () {
+    var m = location.search.match(/[?&]v=([^&]+)/);
+    return m ? decodeURIComponent(m[1]) : '';
+  })();
+
+  var ROSTER = null;      // {who,isAdmin,classes:[{ab,day,time,room,students:[{n,p,s}]}]}
+  var CUR    = null;      // 지금 보고 있는 반
+  var MONTH  = null;      // loadMonth 결과
+  var YM     = null;
+  var TAB    = 'list';    // list | roster | att
+  var DOW    = ['일','월','화','수','목','금','토'];
+  var CYCLE  = ['', 'O', '영상', 'X'];
+  var COLOR  = { 'O':'#d9ead3', '영상':'#cfe2f3', 'X':'#f4cccc', '':'#ffffff' };
+
+  /* ── 서버와 이야기하기 (JSONP) ─────────────────────── */
+  var seq = 0;
+  function ask(params, ok, fail) {
+    var name = '__hj_' + (++seq);
+    var s = document.createElement('script'), timer;
+    function cleanup() {
+      clearTimeout(timer);
+      try { delete window[name]; } catch (e) { window[name] = undefined; }
+      if (s.parentNode) s.parentNode.removeChild(s);
+    }
+    window[name] = function (res) { cleanup(); ok(res); };
+    s.onerror = function () { cleanup(); fail(new Error('연결하지 못했습니다')); };
+    timer = setTimeout(function () { cleanup(); fail(new Error('시간이 오래 걸립니다')); }, 30000);
+    var q = ['v=' + encodeURIComponent(V)];
+    for (var k in params) {
+      if (params.hasOwnProperty(k)) q.push(encodeURIComponent(k) + '=' + encodeURIComponent(params[k]));
+    }
+    q.push('callback=' + name);
+    s.src = API + (API.indexOf('?') < 0 ? '?' : '&') + q.join('&');
+    document.body.appendChild(s);
+  }
+
+  var tt;
+  function toast(msg, bad) {
+    var t = $('toast');
+    t.textContent = msg;
+    t.className = 'toast on' + (bad ? ' bad' : '');
+    clearTimeout(tt);
+    tt = setTimeout(function () { t.className = 'toast'; }, bad ? 3600 : 1900);
+  }
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function ymNow() {
+    var d = new Date();
+    return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2);
+  }
+  function ymShift(ym, n) {
+    var p = ym.split('-'), d = new Date(+p[0], +p[1] - 1 + n, 1);
+    return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2);
+  }
+
+  /* ── 첫 화면: 반 목록 ───────────────────────────────── */
+  function start() {
+    if (!V) { return fatal('주소가 올바르지 않습니다. 받으신 링크를 다시 확인해 주세요.'); }
+    ask({ api: 'roster' }, function (r) {
+      if (!r || !r.ok) return fatal((r && r.msg) || '명단을 받지 못했습니다.');
+      ROSTER = r;
+      $('who').textContent = r.who || '';
+      showList();
+    }, function (e) { fatal(e.message); });
+  }
+
+  function fatal(msg) {
+    $('body').innerHTML = '<div class="card"><div class="msg err">' + esc(msg) + '</div></div>';
+  }
+
+  function showList() {
+    TAB = 'list'; CUR = null; MONTH = null;
+    $('back').style.display = 'none';
+    $('title').textContent = '효진외국어학원';
+    if (!ROSTER.classes.length) {
+      return $('body').innerHTML = '<div class="card"><div class="msg">맡으신 반이 없습니다.</div></div>';
+    }
+    var h = '';
+    ROSTER.classes.forEach(function (c, i) {
+      h += '<button class="clsbtn" data-i="' + i + '">'
+        +  '<div class="nm">' + esc(c.ab) + '</div>'
+        +  '<div class="sub">' + esc(c.day) + ' ' + esc(c.time)
+        +  (c.room ? ' · ' + esc(c.room) : '')
+        +  ' · 재원 ' + c.students.length + '명</div></button>';
+    });
+    $('body').innerHTML = h;
+    [].forEach.call(document.querySelectorAll('.clsbtn'), function (b) {
+      b.addEventListener('click', function () { openClass(+b.getAttribute('data-i')); });
+    });
+  }
+
+  /* ── 반 화면 ────────────────────────────────────────── */
+  function openClass(i) {
+    CUR = ROSTER.classes[i];
+    YM = ymNow();
+    TAB = 'roster';
+    $('back').style.display = 'block';
+    $('title').textContent = CUR.ab;
+    $('body').innerHTML = '<div class="card"><div class="msg">불러오는 중…</div></div>';
+    fetchMonth();
+  }
+
+  function fetchMonth() {
+    ask({ api: 'month', ab: CUR.ab, ym: YM }, function (r) {
+      if (!r || !r.ok) {
+        MONTH = null;
+        $('body').innerHTML = tabsHtml()
+          + '<div class="card"><div class="msg err">' + esc((r && r.msg) || '불러오지 못했습니다.') + '</div></div>';
+        bindTabs();
+        return;
+      }
+      MONTH = r;
+      render();
+    }, function (e) {
+      $('body').innerHTML = tabsHtml()
+        + '<div class="card"><div class="msg err">' + esc(e.message) + '</div></div>';
+      bindTabs();
+    });
+  }
+
+  function tabsHtml() {
+    return '<div class="tabs">'
+      + '<button class="tab' + (TAB === 'roster' ? ' on' : '') + '" data-t="roster">반별명단</button>'
+      + '<button class="tab' + (TAB === 'att' ? ' on' : '') + '" data-t="att">출석부</button>'
+      + '</div>';
+  }
+  function bindTabs() {
+    [].forEach.call(document.querySelectorAll('.tab'), function (b) {
+      b.addEventListener('click', function () { TAB = b.getAttribute('data-t'); render(); });
+    });
+  }
+
+  function render() {
+    $('body').innerHTML = tabsHtml() + (TAB === 'att' ? attHtml() : rosterHtml());
+    bindTabs();
+    if (TAB === 'att') bindAtt(); else bindRoster();
+  }
+
+  /* ── 반별명단 ───────────────────────────────────────── */
+  function rosterHtml() {
+    var payOf = {};
+    if (MONTH && MONTH.students) {
+      MONTH.students.forEach(function (s) { if (s.pay) payOf[s.n] = s.pay; });
+    }
+    var h = '<div class="card">';
+    CUR.students.forEach(function (s, i) {
+      var pay = payOf[s.n], badge = '';
+      if (pay) {
+        var paid = /납부|완납|수납/.test(String(pay.st));
+        badge = '<span class="badge ' + (paid ? 'b-pay' : 'b-un') + '">' + esc(pay.st) + '</span>';
+      }
+      h += '<div class="stu">'
+        +  '<div class="nm"><b>' + esc(s.n) + '</b>' + badge + '</div>'
+        +  (s.p ? '<a class="mini" href="tel:' + esc(s.p) + '">학부모</a>' : '')
+        +  (s.s ? '<a class="mini" href="tel:' + esc(s.s) + '">학생</a>' : '')
+        +  '<button class="mini warn" data-ab="' + i + '">결석확인</button>'
+        +  '</div>';
+    });
+    return h + '</div>';
+  }
+
+  function bindRoster() {
+    [].forEach.call(document.querySelectorAll('.mini.warn'), function (b) {
+      b.addEventListener('click', function () {
+        var s = CUR.students[+b.getAttribute('data-ab')];
+        if (!confirm(s.n + ' 학생 결석 확인 요청을 보낼까요?')) return;
+        b.disabled = true; b.textContent = '보내는 중';
+        ask({ api: 'absent', ab: CUR.ab, student: s.n }, function (r) {
+          b.disabled = false; b.textContent = '결석확인';
+          toast((r && r.msg) || (r && r.ok ? '보냈습니다.' : '보내지 못했습니다.'), !(r && r.ok));
+        }, function (e) {
+          b.disabled = false; b.textContent = '결석확인';
+          toast(e.message, true);
+        });
+      });
+    });
+  }
+
+  /* ── 출석부 ─────────────────────────────────────────── */
+  function attHtml() {
+    if (!MONTH) return '<div class="card"><div class="msg">불러오는 중…</div></div>';
+    var p = YM.split('-');
+    var h = '<div class="mon"><button id="pm">◀</button>'
+      + '<span class="lbl">' + (+p[0]) + '년 ' + (+p[1]) + '월</span>'
+      + '<button id="nm">▶</button></div>';
+
+    if (!MONTH.dates.length) {
+      return h + '<div class="card"><div class="msg">이 달에는 수업일이 없습니다.</div></div>';
+    }
+
+    h += '<div class="gridwrap"><table><thead><tr><th class="hname">학생</th>';
+    MONTH.dates.forEach(function (d) {
+      var dd = d.split('-'), dt = new Date(+dd[0], +dd[1] - 1, +dd[2]);
+      var hol = !!MONTH.holidays[d];
+      h += '<th class="hdate' + (hol ? ' hol' : '') + (MONTH.isAdmin ? ' adm' : '')
+        +  '" data-d="' + d + '">' + (+dd[1]) + '/' + (+dd[2])
+        +  '<span class="dw">' + (hol ? '휴강' : DOW[dt.getDay()]) + '</span></th>';
+    });
+    h += '</tr></thead><tbody>';
+
+    MONTH.students.forEach(function (s) {
+      h += '<tr><td class="cname">' + esc(s.n) + '</td>';
+      s.marks.forEach(function (m) {
+        var hol = !!MONTH.holidays[m.d];
+        var cl = 'cell', style = '';
+        if (m.out)      cl += ' out';
+        else if (hol)   cl += ' hol';
+        else if (!MONTH.isAdmin && m.d !== MONTH.today && m.d !== MONTH.yday) cl += ' lock';
+        if (!m.out && !hol && m.m) style = ' style="background:' + (COLOR[m.m] || '#fff') + '"';
+        h += '<td class="' + cl + '"' + style
+          +  ' data-d="' + m.d + '" data-n="' + esc(s.n) + '">' + esc(m.m) + '</td>';
+      });
+      h += '</tr>';
+    });
+    h += '</tbody></table></div>'
+      +  '<div class="legend"><i style="background:#d9ead3"></i>출석'
+      +  '<i style="background:#cfe2f3"></i>영상<i style="background:#f4cccc"></i>결석'
+      +  '<i style="background:#d9d9d9"></i>휴강</div>';
+    return h;
+  }
+
+  function bindAtt() {
+    var pm = $('pm'), nm = $('nm');
+    if (pm) pm.addEventListener('click', function () { YM = ymShift(YM, -1); loadingGrid(); fetchMonth(); });
+    if (nm) nm.addEventListener('click', function () { YM = ymShift(YM, +1); loadingGrid(); fetchMonth(); });
+
+    [].forEach.call(document.querySelectorAll('.cell'), function (td) {
+      if (/out|hol|lock/.test(td.className)) return;
+      td.addEventListener('click', function () { cycle(td); });
+    });
+
+    if (MONTH && MONTH.isAdmin) {
+      [].forEach.call(document.querySelectorAll('.hdate.adm'), function (th) {
+        th.addEventListener('click', function () {
+          var d = th.getAttribute('data-d');
+          var on = !MONTH.holidays[d];
+          if (!confirm(d + ' 을(를) ' + (on ? '휴강으로 바꿀까요?' : '휴강 해제할까요?'))) return;
+          ask({ api: 'holiday', ab: CUR.ab, date: d, on: on ? 1 : 0 }, function (r) {
+            if (!r || !r.ok) return toast((r && r.msg) || '바꾸지 못했습니다.', true);
+            toast(on ? '휴강으로 바꿨습니다.' : '휴강을 풀었습니다.');
+            loadingGrid(); fetchMonth();
+          }, function (e) { toast(e.message, true); });
+        });
+      });
+    }
+  }
+
+  function loadingGrid() {
+    $('body').innerHTML = tabsHtml() + '<div class="card"><div class="msg">불러오는 중…</div></div>';
+    bindTabs();
+  }
+
+  function cycle(td) {
+    if (td.classList.contains('busy')) return;
+    var cur  = td.textContent.trim();
+    var next = CYCLE[(CYCLE.indexOf(cur) + 1) % CYCLE.length];
+    var d = td.getAttribute('data-d'), n = td.getAttribute('data-n');
+
+    td.textContent = next;
+    td.style.background = COLOR[next] || '#fff';
+    td.classList.add('busy');
+
+    ask({ api: 'mark', ab: CUR.ab, date: d, student: n, mark: next }, function (r) {
+      td.classList.remove('busy');
+      if (!r || !r.ok) {
+        td.textContent = cur;
+        td.style.background = COLOR[cur] || '#fff';
+        return toast((r && r.msg) || '저장하지 못했습니다.', true);
+      }
+      var st = null;
+      (MONTH.students || []).forEach(function (s) { if (s.n === n) st = s; });
+      if (st) st.marks.forEach(function (m) { if (m.d === d) m.m = next; });
+    }, function (e) {
+      td.classList.remove('busy');
+      td.textContent = cur;
+      td.style.background = COLOR[cur] || '#fff';
+      toast('저장하지 못했습니다: ' + e.message, true);
+    });
+  }
+
+  $('back').addEventListener('click', function () {
+    if (TAB === 'list') return;
+    showList();
+  });
+
+  start();
+})();
+</script>
+</body>
+</html>
