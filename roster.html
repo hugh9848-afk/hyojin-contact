@@ -11,7 +11,7 @@
    구글 스크립트 편집기 → 배포 → 배포 관리 의 웹 앱 URL.
    absence.html 에 넣은 것과 똑같은 주소입니다. (/exec 로 끝남)
    ═══════════════════════════════════════════════════════════ */
-var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sWn_OVPfjYdS-iEeLll5d3U4nyf0-XfEtr1CsSHv/exec";
+var API = "https://script.google.com/macros/s/여기에_웹앱_주소를_붙여넣으세요/exec";
 </script>
 
 <style>
@@ -124,6 +124,23 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
   var TAB    = 'list';    // list | roster | att
   var DOW    = ['일','월','화','수','목','금','토'];
   var CYCLE  = ['', 'O', '영상', 'X'];
+
+  /* 선생님이 고칠 수 있는 기간: 수업일 ~ 그 다음 월요일까지
+     (서버의 canEditDate_ 와 똑같은 규칙입니다) */
+  function mondayAfter(ds) {
+    var p = ds.split('-'), dt = new Date(+p[0], +p[1] - 1, +p[2]);
+    var add = (8 - dt.getDay()) % 7;
+    if (add === 0) add = 7;                 // 그 날이 월요일이면 다음 주 월요일
+    dt.setDate(dt.getDate() + add);
+    return dt.getFullYear() + '-' + ('0' + (dt.getMonth() + 1)).slice(-2)
+         + '-' + ('0' + dt.getDate()).slice(-2);
+  }
+  function canEdit(d) {
+    if (!MONTH) return false;
+    if (MONTH.isAdmin) return true;
+    if (d > MONTH.today) return false;      // 아직 오지 않은 수업
+    return MONTH.today <= mondayAfter(d);
+  }
   var COLOR  = { 'O':'#d9ead3', '영상':'#cfe2f3', 'X':'#f4cccc', '':'#ffffff' };
 
   /* ── 서버와 이야기하기 (JSONP) ─────────────────────── */
@@ -321,7 +338,7 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
         var cl = 'cell', style = '';
         if (m.out)      cl += ' out';
         else if (hol)   cl += ' hol';
-        else if (!MONTH.isAdmin && m.d !== MONTH.today && m.d !== MONTH.yday) cl += ' lock';
+        else if (!canEdit(m.d)) cl += ' lock';
         if (!m.out && !hol && m.m) style = ' style="background:' + (COLOR[m.m] || '#fff') + '"';
         h += '<td class="' + cl + '"' + style
           +  ' data-d="' + m.d + '" data-n="' + esc(s.n) + '">' + esc(m.m) + '</td>';
