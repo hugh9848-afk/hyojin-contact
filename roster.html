@@ -155,13 +155,15 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
   /* 구글 서버가 자다 깨느라 첫 요청이 늦을 때가 있어 한 번 더 시도합니다.
      단 '결석확인'은 메일이 나가므로 다시 보내지 않습니다. */
   function ask(params, ok, fail) {
+    // 결석확인은 메일을 보내느라 오래 걸립니다. 넉넉히 기다리고, 다시 보내지 않습니다.
+    var wait = (params.api === 'absent') ? 120000 : 30000;
     askOnce(params, ok, function (e) {
       if (params.api === 'absent') return fail(e);
-      askOnce(params, ok, fail);
-    });
+      askOnce(params, ok, fail, wait);
+    }, wait);
   }
 
-  function askOnce(params, ok, fail) {
+  function askOnce(params, ok, fail, waitMs) {
     var name = '__hj_' + (++seq);
     var s = document.createElement('script'), timer;
     function cleanup() {
@@ -171,7 +173,7 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
     }
     window[name] = function (res) { cleanup(); ok(res); };
     s.onerror = function () { cleanup(); fail(new Error('연결하지 못했습니다')); };
-    timer = setTimeout(function () { cleanup(); fail(new Error('시간이 오래 걸립니다')); }, 30000);
+    timer = setTimeout(function () { cleanup(); fail(new Error('시간이 오래 걸립니다')); }, waitMs || 30000);
     var q = ['v=' + encodeURIComponent(V)];
     for (var k in params) {
       if (params.hasOwnProperty(k)) q.push(encodeURIComponent(k) + '=' + encodeURIComponent(params[k]));
@@ -387,11 +389,18 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
         if (!confirm(s.n + ' 학생 결석 확인 요청을 보낼까요?')) return;
         b.disabled = true; b.textContent = '보내는 중';
         ask({ api: 'absent', ab: CUR.ab, student: s.n }, function (r) {
+          if (r && r.ok) {
+            b.textContent = '보냄';            // 같은 학생에게 또 보내지 않게 잠급니다
+            return toast(r.msg || '보냈습니다.');
+          }
           b.disabled = false; b.textContent = '결석확인';
-          toast((r && r.msg) || (r && r.ok ? '보냈습니다.' : '보내지 못했습니다.'), !(r && r.ok));
-        }, function (e) {
-          b.disabled = false; b.textContent = '결석확인';
-          toast(e.message, true);
+          toast((r && r.msg) || '보내지 못했습니다.', true);
+        }, function () {
+          // 응답이 늦어도 대개는 이미 보내진 상태입니다.
+          // 여기서 다시 누르게 하면 메일이 두 번 갑니다.
+          b.textContent = '확인 중';
+          toast('전송 확인이 늦어지고 있습니다. 메일함을 먼저 확인해 주세요. 안 왔을 때만 다시 시도하세요.', true);
+          setTimeout(function () { b.disabled = false; b.textContent = '결석확인'; }, 60000);
         });
       });
     });
