@@ -25,6 +25,9 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
   .top h1{font-size:17px;margin:0;font-weight:700;flex:1;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .who{font-size:13px;color:#667}
+  .pend{font-size:12px;font-weight:700;color:#8a5809;background:#fbf1dc;
+    border-radius:9px;padding:3px 9px;white-space:nowrap}
+  .pend.done{color:#20624a;background:#e2f0ea}
   .back{background:#fff;border:1px solid #d5d8dd;border-radius:8px;padding:6px 11px;
     font-size:14px;cursor:pointer;font-family:inherit;color:#2f6fdb;font-weight:600}
 
@@ -105,6 +108,7 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
   <div class="top">
     <button class="back" id="back" style="display:none">← 뒤로</button>
     <h1 id="title">효진외국어학원</h1>
+    <span class="pend" id="pend" style="display:none"></span>
     <span class="who" id="who"></span>
   </div>
   <div id="body"><div class="msg">불러오는 중…</div></div>
@@ -206,6 +210,7 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
       ROSTER = r;
       $('who').textContent = r.who || '';
       showList();
+      pendReplay();          // 지난번에 못 보낸 출석이 있으면 지금 보냅니다
     }, function (e) { fatal(e.message); });
   }
 
@@ -258,10 +263,25 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
   var FRESH  = 180000;   // 3분
   function mkey(ab, ym) { return ab + '|' + ym; }
 
+  /* 서버가 아직 모르는 내 최근 터치를 화면에 덮어씌웁니다.
+     (저장이 아직 전달되지 않았어도 선생님이 누른 대로 보이게) */
+  function applyPending(data, ab) {
+    var o = pendAll();
+    Object.keys(o).forEach(function (k) {
+      var p = o[k];
+      if (p.ab !== ab) return;
+      (data.students || []).forEach(function (s) {
+        if (s.n !== p.n) return;
+        s.marks.forEach(function (m) { if (m.d === p.d) m.m = p.v; });
+      });
+    });
+    return data;
+  }
+
   function fetchMonth() {
     var k = mkey(CUR.ab, YM), c = MCACHE[k];
     if (c && (new Date().getTime() - c.t) < FRESH) {
-      MONTH = c.data;
+      MONTH = applyPending(c.data, CUR.ab);
       render();
       prefetch();
       return;
@@ -275,7 +295,7 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
         return;
       }
       MCACHE[k] = { t: new Date().getTime(), data: r };
-      MONTH = r;
+      MONTH = applyPending(r, CUR.ab);
       render();
       prefetch();
     }, function (e) {
@@ -292,7 +312,7 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
       if (c && (new Date().getTime() - c.t) < FRESH) return;
       ask({ api: 'month', ab: CUR.ab, ym: ym }, function (r) {
         if (!r || !r.ok) return;
-        MCACHE[k] = { t: new Date().getTime(), data: r };
+        MCACHE[k] = { t: new Date().getTime(), data: applyPending(r, CUR.ab) };
         // 명단을 보고 있는데 이번 달엔 납부 정보가 없었다면, 이제 채워서 다시 그립니다
         if (TAB === 'roster' && MONTH && !MONTH.hasPay && r.hasPay) render();
       }, function () {});
@@ -457,6 +477,80 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
     bindTabs();
   }
 
+  /* ── 저장 대기함 ────────────────────────────────────────
+     칸을 누르는 즉시 이 기계 안에 적어둡니다.
+     서버가 "저장했다"고 답해야만 지웁니다.
+     그래서 도중에 창을 닫거나 전파가 끊겨도 기록이 사라지지 않고,
+     다음에 열 때 자동으로 다시 보냅니다.                      */
+  var PKEY = 'hyojin_pending_marks_v1';
+  var MAXAGE = 3 * 24 * 3600 * 1000;   // 3일 지난 건 버립니다
+
+  function pendAll() {
+    try { return JSON.parse(localStorage.getItem(PKEY) || '{}'); } catch (e) { return {}; }
+  }
+  function pendPut(o) {
+    try { localStorage.setItem(PKEY, JSON.stringify(o)); } catch (e) {}
+    paintPend();
+  }
+  function pendAdd(ab, d, n, v) {
+    var o = pendAll();
+    o[ab + '|' + d + '|' + n] = { ab: ab, d: d, n: n, v: v, t: new Date().getTime() };
+    pendPut(o);
+  }
+  function pendDone(ab, d, n) {
+    var o = pendAll();
+    delete o[ab + '|' + d + '|' + n];
+    pendPut(o);
+  }
+
+  var doneTimer;
+  function paintPend() {
+    var el = $('pend'); if (!el) return;
+    var cnt = Object.keys(pendAll()).length;
+    clearTimeout(doneTimer);
+    if (cnt) {
+      el.textContent = '저장 중 ' + cnt;
+      el.className = 'pend';
+      el.style.display = '';
+    } else if (el.style.display !== 'none') {
+      el.textContent = '저장됨';
+      el.className = 'pend done';
+      doneTimer = setTimeout(function () { el.style.display = 'none'; }, 1600);
+    }
+  }
+
+  /** 못 보낸 것이 있으면 다시 보냅니다 (페이지를 열 때) */
+  function pendReplay() {
+    var o = pendAll(), now = new Date().getTime(), changed = false;
+    Object.keys(o).forEach(function (k) {
+      var p = o[k];
+      if (now - (p.t || 0) > MAXAGE) { delete o[k]; changed = true; return; }
+      ask({ api: 'mark', ab: p.ab, date: p.d, student: p.n, mark: p.v }, function (r) {
+        if (r && r.ok) pendDone(p.ab, p.d, p.n);
+      }, function () {});
+    });
+    if (changed) pendPut(o);
+    paintPend();
+  }
+
+  /** 창을 닫는 순간, 남은 것을 끊기지 않는 방식으로 한 번 더 밀어냅니다 */
+  function pendFlush() {
+    var o = pendAll();
+    Object.keys(o).forEach(function (k) {
+      var p = o[k];
+      var url = API + (API.indexOf('?') < 0 ? '?' : '&')
+        + 'v=' + encodeURIComponent(V) + '&api=mark'
+        + '&ab=' + encodeURIComponent(p.ab) + '&date=' + encodeURIComponent(p.d)
+        + '&student=' + encodeURIComponent(p.n) + '&mark=' + encodeURIComponent(p.v)
+        + '&callback=x';
+      try { fetch(url, { mode: 'no-cors', keepalive: true }); } catch (e) {}
+    });
+  }
+  window.addEventListener('pagehide', pendFlush);
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') pendFlush();
+  });
+
   /* 터치는 즉시 반영하고 저장은 뒤에서 합니다.
      저장이 끝나기 전에 또 눌러도 막지 않습니다 — 마지막 값만 보냅니다. */
   var saveTurn = {};
@@ -469,12 +563,15 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
     td.style.background = COLOR[next] || '#fff';
     td.classList.add('busy');
 
-    var key = td.getAttribute('data-d') + '|' + td.getAttribute('data-n');
+    var d = td.getAttribute('data-d'), n = td.getAttribute('data-n');
+    var key = d + '|' + n;
     saveTurn[key] = (saveTurn[key] || 0) + 1;
     var turn = saveTurn[key];
 
+    pendAdd(CUR.ab, d, n, next);                   // ★ 먼저 적어둡니다
+
     clearTimeout(td._timer);
-    td._timer = setTimeout(function () { sendMark(td, key, turn); }, 350);
+    td._timer = setTimeout(function () { sendMark(td, key, turn); }, 200);
   }
 
   function sendMark(td, key, turn) {
@@ -485,6 +582,7 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
       if (turn !== saveTurn[key]) return;          // 그 사이 또 눌렀으면 이 응답은 버립니다
       td.classList.remove('busy');
       if (!r || !r.ok) return undo(td, (r && r.msg) || '저장하지 못했습니다.');
+      pendDone(CUR.ab, d, n);                      // ★ 서버가 확인해줘야 지웁니다
       td.setAttribute('data-saved', val);
       (MONTH.students || []).forEach(function (s) {
         if (s.n !== n) return;
@@ -498,6 +596,7 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
   }
 
   function undo(td, msg) {
+    pendDone(CUR.ab, td.getAttribute('data-d'), td.getAttribute('data-n'));
     var back = td.getAttribute('data-saved') || '';
     td.textContent = back;
     td.style.background = COLOR[back] || '#fff';
