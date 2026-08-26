@@ -250,7 +250,20 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
     fetchMonth();
   }
 
+  /* 한 번 받아온 달은 기억해 둡니다. 앞뒤 달은 미리 받아둬서
+     ◀ ▶ 를 눌렀을 때 기다리지 않게 합니다. */
+  var MCACHE = {};
+  var FRESH  = 180000;   // 3분
+  function mkey(ab, ym) { return ab + '|' + ym; }
+
   function fetchMonth() {
+    var k = mkey(CUR.ab, YM), c = MCACHE[k];
+    if (c && (new Date().getTime() - c.t) < FRESH) {
+      MONTH = c.data;
+      render();
+      prefetch();
+      return;
+    }
     ask({ api: 'month', ab: CUR.ab, ym: YM }, function (r) {
       if (!r || !r.ok) {
         MONTH = null;
@@ -259,12 +272,25 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
         bindTabs();
         return;
       }
+      MCACHE[k] = { t: new Date().getTime(), data: r };
       MONTH = r;
       render();
+      prefetch();
     }, function (e) {
       $('body').innerHTML = tabsHtml()
         + '<div class="card"><div class="msg err">' + esc(e.message) + '</div></div>';
       bindTabs();
+    });
+  }
+
+  /* 화면을 보여준 뒤, 조용히 앞뒤 달을 받아둡니다 */
+  function prefetch() {
+    [ymShift(YM, -1), ymShift(YM, 1)].forEach(function (ym) {
+      var k = mkey(CUR.ab, ym), c = MCACHE[k];
+      if (c && (new Date().getTime() - c.t) < FRESH) return;
+      ask({ api: 'month', ab: CUR.ab, ym: ym }, function (r) {
+        if (r && r.ok) MCACHE[k] = { t: new Date().getTime(), data: r };
+      }, function () {});
     });
   }
 
@@ -386,11 +412,16 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
           var d = th.getAttribute('data-d');
           var on = !MONTH.holidays[d];
           if (!confirm(d + ' 을(를) ' + (on ? '휴강으로 바꿀까요?' : '휴강 해제할까요?'))) return;
+          th.style.opacity = '.5';
           ask({ api: 'holiday', ab: CUR.ab, date: d, on: on ? 1 : 0 }, function (r) {
+            th.style.opacity = '';
             if (!r || !r.ok) return toast((r && r.msg) || '바꾸지 못했습니다.', true);
+            // 다시 받아오지 않고 화면만 고칩니다 (한 번 더 기다릴 일이 없게)
+            MONTH.holidays = MONTH.holidays || {};
+            if (on) MONTH.holidays[d] = true; else delete MONTH.holidays[d];
             toast(on ? '휴강으로 바꿨습니다.' : '휴강을 풀었습니다.');
-            loadingGrid(); fetchMonth();
-          }, function (e) { toast(e.message, true); });
+            render();
+          }, function (e) { th.style.opacity = ''; toast(e.message, true); });
         });
       });
     }
