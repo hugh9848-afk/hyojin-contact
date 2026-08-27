@@ -3,16 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#2f6fdb">
 <title>결석 전달 · 효진외국어학원</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
 
+<script src="config.js"></script>
 <script>
-/* ═══════════════════════════════════════════════════════════
-   ↓↓↓ 여기 한 줄만 고치면 됩니다 ↓↓↓
-   구글 스크립트 편집기 → 배포 → 배포 관리 에 나오는
-   웹 앱 URL 을 그대로 따옴표 안에 붙여넣으세요.
-   (뒤에 ?p=absence 같은 건 붙이지 마세요)
-   ═══════════════════════════════════════════════════════════ */
-var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sWn_OVPfjYdS-iEeLll5d3U4nyf0-XfEtr1CsSHv/exec";
+/* 서버 주소는 이제 config.js 에서 한 번만 관리합니다 */
+var API = window.HYOJIN_API;
 </script>
 
 <style>
@@ -303,6 +304,13 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
 
   loadClasses();
 })();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  });
+}
 </script>
 </body>
 </html>

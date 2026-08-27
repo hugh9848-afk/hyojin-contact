@@ -3,15 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#2f6fdb">
 <title>효진외국어학원</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
 
+<script src="config.js"></script>
 <script>
-/* ═══════════════════════════════════════════════════════════
-   ↓↓↓ 여기 한 줄만 고치면 됩니다 ↓↓↓
-   구글 스크립트 편집기 → 배포 → 배포 관리 의 웹 앱 URL.
-   absence.html 에 넣은 것과 똑같은 주소입니다. (/exec 로 끝남)
-   ═══════════════════════════════════════════════════════════ */
-var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sWn_OVPfjYdS-iEeLll5d3U4nyf0-XfEtr1CsSHv/exec";
+/* 서버 주소는 이제 config.js 에서 한 번만 관리합니다 */
+var API = window.HYOJIN_API;
 </script>
 
 <style>
@@ -118,8 +121,9 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
+  /* 토큰은 ?v=... 로 와도 되고, #v=... (주소창·기록·로그에 덜 남음) 로 와도 됩니다 */
   var V = (function () {
-    var m = location.search.match(/[?&]v=([^&]+)/);
+    var m = location.search.match(/[?&]v=([^&]+)/) || location.hash.match(/[#?&]v=([^&]+)/);
     return m ? decodeURIComponent(m[1]) : '';
   })();
 
@@ -205,15 +209,46 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
   }
 
   /* ── 첫 화면: 반 목록 ───────────────────────────────── */
+  /* 지난번에 본 반 목록을 이 기계 안에 적어 둡니다.
+     (전화번호는 빼고 이름만 — 화면에 곧바로 뜨게 하려는 용도) */
+  var RKEY = 'hyojin_roster_' + V;
+  function saveRosterLean(r) {
+    try {
+      var lean = {
+        ok: true, who: r.who, isAdmin: r.isAdmin,
+        classes: (r.classes || []).map(function (c) {
+          return {
+            ab: c.ab, day: c.day, time: c.time, room: c.room,
+            students: (c.students || []).map(function (s) { return { n: s.n }; })
+          };
+        })
+      };
+      localStorage.setItem(RKEY, JSON.stringify(lean));
+    } catch (e) {}
+  }
+
   function start() {
     if (!V) { return fatal('주소가 올바르지 않습니다. 받으신 링크를 다시 확인해 주세요.'); }
+
+    // ① 적어둔 게 있으면 기다리지 않고 먼저 보여줍니다
+    try {
+      var cached = JSON.parse(localStorage.getItem(RKEY) || 'null');
+      if (cached && cached.classes) {
+        ROSTER = cached;
+        $('who').textContent = cached.who || '';
+        showList();
+      }
+    } catch (e) {}
+
+    // ② 그러는 동안 최신 명단을 받아 맞춰 둡니다
     ask({ api: 'roster' }, function (r) {
-      if (!r || !r.ok) return fatal((r && r.msg) || '명단을 받지 못했습니다.');
+      if (!r || !r.ok) { if (!ROSTER) fatal((r && r.msg) || '명단을 받지 못했습니다.'); return; }
       ROSTER = r;
+      saveRosterLean(r);
       $('who').textContent = r.who || '';
-      showList();
+      if (TAB === 'list') showList();     // 아직 목록 화면일 때만 다시 그림
       pendReplay();          // 지난번에 못 보낸 출석이 있으면 지금 보냅니다
-    }, function (e) { fatal(e.message); });
+    }, function (e) { if (!ROSTER) fatal(e.message); });
   }
 
   function fatal(msg) {
@@ -619,6 +654,13 @@ var API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sW
 
   start();
 })();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  });
+}
 </script>
 </body>
 </html>
