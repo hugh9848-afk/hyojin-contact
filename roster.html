@@ -53,10 +53,17 @@ var API = window.HYOJIN_API;
   .tab.on{background:#2f6fdb;border-color:#2f6fdb;color:#fff}
 
   /* 명단 */
-  .stu{display:flex;align-items:center;gap:8px;padding:11px 0;border-bottom:1px solid #eef0f3}
+  .stu{padding:11px 2px;border-bottom:1px solid #eef0f3}
   .stu:last-child{border-bottom:0}
+  .stuhead{display:flex;align-items:center;gap:8px}
   .stu .nm{flex:1;min-width:0}
   .stu .nm b{font-size:15.5px;font-weight:600}
+  .tels{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  a.tel{display:inline-flex;align-items:baseline;gap:6px;background:#f4f7fb;
+    border:1px solid #d9e2ef;border-radius:8px;padding:7px 11px;font-size:14.5px;
+    color:#1155cc;text-decoration:none;font-variant-numeric:tabular-nums}
+  a.tel span{font-size:11.5px;color:#8a90a0}
+  .telnone{font-size:13px;color:#9aa0ac;padding:5px 2px}
   .badge{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:9px;
     font-size:11.5px;font-weight:700;vertical-align:middle}
   .b-pay{background:#e2f0ea;color:#20624a}
@@ -227,6 +234,24 @@ var API = window.HYOJIN_API;
     } catch (e) {}
   }
 
+  /* 이 명단이 "이름만" 저장된 캐시인지 확인합니다.
+     학생은 있는데 전화번호가 하나도 없으면 = 아직 최신 명단을 못 받은 상태입니다. */
+  function isLeanRoster(r) {
+    if (!r || !r.classes) return false;
+    for (var i = 0; i < r.classes.length; i++) {
+      var st = r.classes[i].students || [];
+      for (var j = 0; j < st.length; j++) {
+        if (st[j].p || st[j].s) return false;   // 번호가 하나라도 있으면 lean 아님
+      }
+    }
+    return true;
+  }
+  function findClass(r, ab) {
+    var cs = (r && r.classes) || [];
+    for (var i = 0; i < cs.length; i++) if (cs[i].ab === ab) return cs[i];
+    return null;
+  }
+
   function start() {
     if (!V) { return fatal('주소가 올바르지 않습니다. 받으신 링크를 다시 확인해 주세요.'); }
 
@@ -240,15 +265,41 @@ var API = window.HYOJIN_API;
       }
     } catch (e) {}
 
-    // ② 그러는 동안 최신 명단을 받아 맞춰 둡니다
+    // ② 그러는 동안 최신 명단(전화번호 포함)을 받아 맞춰 둡니다
     ask({ api: 'roster' }, function (r) {
       if (!r || !r.ok) { if (!ROSTER) fatal((r && r.msg) || '명단을 받지 못했습니다.'); return; }
+      var 캐시로열어둠 = isLeanRoster(ROSTER);
       ROSTER = r;
       saveRosterLean(r);
       $('who').textContent = r.who || '';
-      if (TAB === 'list') showList();     // 아직 목록 화면일 때만 다시 그림
+      if (TAB === 'list') {
+        showList();
+      } else if (CUR) {
+        /* 캐시(이름만)로 반 화면을 열어둔 사이에 전화번호가 든 최신 명단이 도착했습니다.
+           지금 보던 반을 최신 것으로 바꿔 끼우고, 명단 탭이면 다시 그립니다. */
+        var 최신반 = findClass(r, CUR.ab);
+        if (최신반) {
+          CUR = 최신반;
+          if (TAB === 'roster' && 캐시로열어둠) render();
+        }
+      }
       pendReplay();          // 지난번에 못 보낸 출석이 있으면 지금 보냅니다
-    }, function (e) { if (!ROSTER) fatal(e.message); });
+    }, function (e) {
+      if (!ROSTER) return fatal(e.message);
+      /* 캐시(이름만)만 있는 채로 최신 명단을 못 받으면 전화번호가 안 뜹니다.
+         조용히 한 번 더 시도합니다. */
+      if (isLeanRoster(ROSTER)) setTimeout(function () {
+        ask({ api: 'roster' }, function (r2) {
+          if (!r2 || !r2.ok) return;
+          ROSTER = r2; saveRosterLean(r2);
+          if (TAB === 'list') showList();
+          else if (CUR) {
+            var f = findClass(r2, CUR.ab);
+            if (f) { CUR = f; if (TAB === 'roster') render(); }
+          }
+        }, function () {});
+      }, 4000);
+    });
   }
 
   function fatal(msg) {
@@ -404,14 +455,21 @@ var API = window.HYOJIN_API;
     CUR.students.forEach(function (s, i) {
       var pay = payOf[s.n], badge = '';
       if (pay) {
-        badge = '<span class="badge ' + badgeClass(String(pay.st)) + '">'
-              + payMonth + esc(pay.st) + '</span>';
+        // pay.alt = 성남사랑·카드·현금 등 대체결제 (파기·취소였지만 메모로 납부 확인된 경우)
+        var txt = payMonth + esc(pay.st) + (pay.alt ? ' · ' + esc(pay.alt) : '');
+        badge = '<span class="badge ' + badgeClass(String(pay.st)) + '">' + txt + '</span>';
       }
+      var tels = '';
+      if (s.p) tels += '<a class="tel" href="tel:' + esc(s.p) + '"><span>학부모</span>' + esc(s.p) + '</a>';
+      if (s.s) tels += '<a class="tel" href="tel:' + esc(s.s) + '"><span>학생</span>' + esc(s.s) + '</a>';
+      if (!s.p && !s.s) tels = '<span class="telnone">전화번호 없음</span>';
+
       h += '<div class="stu">'
-        +  '<div class="nm"><b>' + esc(s.n) + '</b>' + badge + '</div>'
-        +  (s.p ? '<a class="mini" href="tel:' + esc(s.p) + '">학부모</a>' : '')
-        +  (s.s ? '<a class="mini" href="tel:' + esc(s.s) + '">학생</a>' : '')
-        +  '<button class="mini warn" data-ab="' + i + '">결석확인</button>'
+        +  '<div class="stuhead">'
+        +    '<div class="nm"><b>' + esc(s.n) + '</b>' + badge + '</div>'
+        +    '<button class="mini warn" data-ab="' + i + '">결석확인</button>'
+        +  '</div>'
+        +  '<div class="tels">' + tels + '</div>'
         +  '</div>';
     });
     return h + '</div>';
