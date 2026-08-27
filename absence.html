@@ -68,6 +68,10 @@ var API = window.HYOJIN_API;
     <label for="reason">사유 <span style="font-weight:400;color:#888">(선택)</span></label>
     <textarea id="reason" maxlength="200" placeholder="예) 학교 행사로 참석이 어렵습니다"></textarea>
 
+    <!-- 사람 눈에는 안 보이는 함정 칸. 자동 도배 프로그램만 여기를 채웁니다. -->
+    <input id="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true"
+           style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
+
     <div class="err" id="err"></div>
     <button id="go" disabled>결석 전달하기</button>
     <button id="again" class="retry" style="display:none">다시 불러오기</button>
@@ -277,7 +281,8 @@ var API = window.HYOJIN_API;
       cls: cls.value,
       date: date.value,
       student: name(),
-      reason: $('reason').value
+      reason: $('reason').value,
+      website: $('hp').value
     }, function (r) {
       if (!r || !r.ok) {
         err.textContent = (r && r.msg) || '전달하지 못했습니다. 잠시 후 다시 시도해 주세요.';
