@@ -3,11 +3,12 @@
    인터넷이 약하거나 끊겨도 페이지가 열리게 합니다.
    실제 자료(구글 스크립트 응답)는 저장하지 않고 그때그때 받아옵니다. */
 
-var CACHE = 'hyojin-v1';
+var CACHE = 'hyojin-v2';
 var ASSETS = [
   './',
   './index.html',
   './absence.html',
+  './winter2027.html',
   './roster.html',
   './classes.json',
   './config.js',
