@@ -58,6 +58,10 @@ var API = window.HYOJIN_API;
   .stuhead{display:flex;align-items:center;gap:8px}
   .stu .nm{flex:1;min-width:0}
   .stu .nm b{font-size:15.5px;font-weight:600}
+  /* 이름 왼쪽 번호 — 몇 명인지 눈으로 바로 세어지라고 붙입니다 */
+  .no{display:inline-block;min-width:17px;margin-right:6px;text-align:right;
+    font-size:12px;color:#98a0ab;font-weight:600;font-variant-numeric:tabular-nums}
+  .cnt{padding:2px 2px 9px;font-size:12.5px;color:#667;font-weight:600}
   .tels{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
   a.tel{display:inline-flex;align-items:baseline;gap:6px;background:#f4f7fb;
     border:1px solid #d9e2ef;border-radius:8px;padding:7px 11px;font-size:14.5px;
@@ -85,7 +89,7 @@ var API = window.HYOJIN_API;
   table{border-collapse:separate;border-spacing:0;font-size:14px;min-width:100%}
   th,td{padding:0;margin:0}
   .hname,.cname{position:sticky;left:0;background:#fff;z-index:2;
-    min-width:96px;max-width:96px;padding:8px 10px;text-align:left;
+    min-width:112px;max-width:112px;padding:8px 10px;text-align:left;
     border-right:1px solid #e3e6ea;border-bottom:1px solid #eef0f3;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .hname{background:#f7f8fa;font-size:12px;color:#667;font-weight:600}
@@ -452,6 +456,7 @@ var API = window.HYOJIN_API;
     if (!src) {
       h += '<div class="paynote">아직 이 달 수강료 청구 정보가 없습니다.</div>';
     }
+    h += '<div class="cnt">총 ' + CUR.students.length + '명</div>';   // 몇 명인지 한눈에
     CUR.students.forEach(function (s, i) {
       var pay = payOf[s.n], badge = '';
       if (pay) {
@@ -466,7 +471,7 @@ var API = window.HYOJIN_API;
 
       h += '<div class="stu">'
         +  '<div class="stuhead">'
-        +    '<div class="nm"><b>' + esc(s.n) + '</b>' + badge + '</div>'
+        +    '<div class="nm"><span class="no">' + (i + 1) + '</span><b>' + esc(s.n) + '</b>' + badge + '</div>'
         +    '<button class="mini warn" data-ab="' + i + '">결석확인</button>'
         +  '</div>'
         +  '<div class="tels">' + tels + '</div>'
@@ -511,7 +516,8 @@ var API = window.HYOJIN_API;
       return h + '<div class="card"><div class="msg">이 달에는 수업일이 없습니다.</div></div>';
     }
 
-    h += '<div class="gridwrap"><table><thead><tr><th class="hname">학생</th>';
+    h += '<div class="gridwrap"><table><thead><tr><th class="hname">학생 ('
+      + MONTH.students.length + '명)</th>';
     MONTH.dates.forEach(function (d) {
       var dd = d.split('-'), dt = new Date(+dd[0], +dd[1] - 1, +dd[2]);
       var hol = !!MONTH.holidays[d];
@@ -521,8 +527,8 @@ var API = window.HYOJIN_API;
     });
     h += '</tr></thead><tbody>';
 
-    MONTH.students.forEach(function (s) {
-      h += '<tr><td class="cname">' + esc(s.n) + '</td>';
+    MONTH.students.forEach(function (s, i) {
+      h += '<tr><td class="cname"><span class="no">' + (i + 1) + '</span>' + esc(s.n) + '</td>';
       s.marks.forEach(function (m) {
         var hol = !!MONTH.holidays[m.d];
         var cl = 'cell', style = '';
