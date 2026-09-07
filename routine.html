@@ -194,6 +194,60 @@ h1{
 .sw[aria-pressed="true"]::after{transform:translateX(17px)}
 .sw:focus-visible{outline:2px solid var(--brass); outline-offset:2px}
 
+.cal{display:flex; flex-direction:column; gap:8px}
+.calrow{
+  display:flex; align-items:flex-start; gap:10px; padding:9px 11px; border-radius:9px;
+  background:var(--surface-2); border:1px solid var(--line-soft);
+}
+.calrow.on{border-color:var(--brass); background:var(--brass-soft)}
+.calrow .when{
+  font-family:var(--mono); font-size:11px; color:var(--faint); flex:none; width:46px;
+  font-variant-numeric:tabular-nums; padding-top:2px; line-height:1.35;
+}
+.calrow.on .when{color:var(--brass)}
+.calrow .what{flex:1; min-width:0; font-size:13.5px; line-height:1.4}
+.calrow .what b{font-weight:500; display:block; word-break:break-word}
+.calrow .what em{font-style:normal; font-size:11.5px; color:var(--muted); font-weight:300}
+.calbtn{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.03em; padding:6px 9px;
+  border-radius:7px; border:1px solid var(--brass); background:transparent; color:var(--brass);
+  cursor:pointer; flex:none; align-self:center; white-space:nowrap;
+}
+.calbtn:hover{background:var(--brass); color:var(--bg)}
+.calbtn:focus-visible{outline:2px solid var(--brass); outline-offset:2px}
+.todoItem{
+  display:flex; align-items:flex-start; gap:10px; width:100%; text-align:left; cursor:pointer;
+  font-family:inherit; color:inherit; font-size:13.5px; line-height:1.4;
+  padding:9px 11px; border-radius:9px; background:var(--surface-2); border:1px solid var(--line-soft);
+}
+.todoItem:hover{border-color:var(--faint)}
+.todoItem:focus-visible{outline:2px solid var(--brass); outline-offset:2px}
+.todoItem.done{opacity:.55}
+.todoItem.done b{text-decoration:line-through}
+.todoItem .box{margin-top:0}
+.todoItem .what{flex:1; min-width:0}
+.todoWrap{display:flex; align-items:center; gap:6px}
+.todoWrap .todoItem{flex:1}
+.del{
+  background:none; border:none; color:var(--faint); cursor:pointer; font-size:15px; line-height:1;
+  padding:6px 7px; border-radius:6px; flex:none;
+}
+.del:hover{color:var(--text); background:var(--surface-2)}
+.del:focus-visible{outline:2px solid var(--brass); outline-offset:2px}
+.addRow{display:flex; gap:8px}
+.addRow input{
+  flex:1; min-width:0; background:var(--surface-2); border:1px solid var(--line-soft);
+  border-radius:8px; padding:9px 11px; font-family:var(--sans); font-size:13.5px; color:var(--text);
+}
+.addRow input::placeholder{color:var(--faint); font-weight:300}
+.addRow input:focus{outline:none; border-color:var(--brass); background:var(--surface)}
+
+.calnote{margin:0; font-size:12.5px; color:var(--muted); font-weight:300; line-height:1.5}
+.ro{
+  font-family:var(--mono); font-size:9.5px; letter-spacing:.08em; color:var(--faint);
+  border:1px solid var(--line); padding:2px 6px; border-radius:4px;
+}
+
 .shootRow{display:flex; gap:10px; flex-wrap:wrap}
 .shootRow label{
   display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--muted);
@@ -286,6 +340,14 @@ img{max-width:100%}
     <div class="bar"><i id="progressBar"></i></div>
   </section>
 
+  <section class="panel" id="calBox" hidden>
+    <div class="spine-hd">
+      <span class="eyebrow">구글 캘린더</span>
+      <span class="ro">읽기 전용</span>
+    </div>
+    <div class="cal" id="calBody"><p class="calnote">불러오는 중…</p></div>
+  </section>
+
   <section class="panel" id="shootBox" hidden>
     <span class="eyebrow">콜타임 역산</span>
     <div class="shootRow">
@@ -303,6 +365,18 @@ img{max-width:100%}
   </section>
 
   <main class="tl" id="timeline"></main>
+
+  <section class="panel" id="todoBox">
+    <div class="spine-hd">
+      <span class="eyebrow">오늘 할일</span>
+      <span class="spine-count" id="todoCount"></span>
+    </div>
+    <div class="cal" id="todoBody"></div>
+    <form class="addRow" id="addForm">
+      <input type="text" id="addInput" placeholder="직접 추가" autocomplete="off">
+      <button type="submit" class="calbtn">추가</button>
+    </form>
+  </section>
 
   <section class="panel">
     <div class="toggle" id="leanRow">
@@ -393,8 +467,9 @@ img{max-width:100%}
     return "weekday";
   }
 
-  var state = { mode:null, done:{}, lines:["","",""], lean:false, call:"10:00", travel:60 };
+  var state = { mode:null, done:{}, lines:["","",""], lean:false, call:"10:00", travel:60, todoDone:{}, extra:[] };
   var db = null, unsub = null, myStamp = null, saveTimer = null;
+  var calState = {}, todoState = {};   // 캘린더에서 받아온 것을 담아두는 상자
 
   function activeMode(){ return state.mode || autoMode(NOW_DATE); }
   function plan(){ return activeMode() === "shoot" ? buildShoot() : PLANS[activeMode()]; }
@@ -445,7 +520,7 @@ img{max-width:100%}
   // ---------- 저장 / 불러오기 ----------
   var LS = "routine:" + DATE_KEY;
   function payload(){
-    return { date:DATE_KEY, mode:state.mode, done:state.done, lines:state.lines, lean:state.lean, call:state.call, travel:state.travel, stamp:myStamp };
+    return { date:DATE_KEY, mode:state.mode, done:state.done, lines:state.lines, lean:state.lean, call:state.call, travel:state.travel, todoDone:state.todoDone, extra:state.extra, stamp:myStamp };
   }
   function apply(d){
     if (!d) return;
@@ -456,6 +531,8 @@ img{max-width:100%}
     state.lean  = !!d.lean;
     state.call  = d.call || "10:00";
     state.travel = +d.travel || 60;
+    state.todoDone = (d.todoDone && typeof d.todoDone === "object") ? d.todoDone : {};
+    state.extra = Array.isArray(d.extra) ? d.extra : [];
   }
   function save(){
     myStamp = String(Date.now()) + "-" + Math.random().toString(36).slice(2,7);
@@ -621,7 +698,7 @@ img{max-width:100%}
       m2s(p.wake) + " 기상 · " + m2s(p.leave) + " 출발. 오늘 지킬 건 이것뿐이고, 내일 07:00 기상으로 돌아오면 됩니다.";
   }
 
-  function render(){ renderHead(); renderShoot(); renderSpine(); renderTimeline(); renderLines(); renderLean(); }
+  function render(){ renderHead(); renderShoot(); renderSpine(); renderTimeline(); renderTodo(); renderLines(); renderLean(); }
 
   // ---------- 지난 7일 ----------
   function renderWeek(records){
@@ -662,9 +739,268 @@ img{max-width:100%}
   $("#leanRow").onclick = function(e){ if (e.target.id !== "lean"){ state.lean = !state.lean; save(); render(); } };
   $("#reset").onclick = function(){
     state.done = {}; state.lines = ["","",""]; state.lean = false;
+    state.todoDone = {}; state.extra = [];
     var box = $("#lines"); box.dataset.built = ""; box.innerHTML = "";
     save(); render();
   };
+
+  // ---------- 구글 캘린더 읽어오기 (쓰기 도구는 아예 선언하지 않음) ----------
+  // 촬영일정 = 촬영표를 만드는 데 씀
+  var CALS = [
+    { id:"jsp2rc8g0bfeojcs771m51abj0@group.calendar.google.com", name:"촬영" }
+  ];
+  // 나머지 캘린더 = 아래 '오늘 할일' 칸에 오늘 것만 들어감
+  // (공휴일 캘린더와 '효진 수업스케줄'은 할일이 아니라서 뺐습니다)
+  var TODO_CALS = [
+    { id:"hugh9848@gmail.com",                                   name:"개인" },
+    { id:"nncp8vkejmi677a7i2cpv5mlq8@group.calendar.google.com", name:"미팅/오디션" },
+    { id:"ngf14c15imbmrbg0u133840000@group.calendar.google.com", name:"효진" },
+    { id:"j12goh8p17etofli0m59c1g6us@group.calendar.google.com", name:"병원/관리" },
+    { id:"0isle1jcfa60vpkb2vq2gkksr0@group.calendar.google.com", name:"관람/PT/승마" },
+    { id:"family15908586415953656664@group.calendar.google.com", name:"가족" },
+    { id:"b5affo6ug5mqv8729nln3mlbcg@group.calendar.google.com", name:"여행" }
+  ];
+
+  // 제목에 적힌 콜타임을 찾아냄 — "2시 샥즈광고" 처럼 시각이 제목에 들어 있는 경우가 많음
+  function pickTime(title){
+    var s = String(title || "");
+    var pm = /오후|저녁|밤/.test(s), am = /오전|새벽/.test(s);
+    var m = s.match(/(\d{1,2})\s*(?::|시)\s*(\d{1,2})?/);
+    if (!m) return null;
+    var h = +m[1], mi = m[2] ? +m[2] : 0;
+    if (h > 23 || mi > 59) return null;
+    if (pm && h < 12) h += 12;
+    else if (am && h === 12) h = 0;
+    else if (!pm && !am && h >= 1 && h <= 7) h += 12;   // 촬영 콜타임이 새벽 1~7시일 일은 드묾
+    return pad(h) + ":" + pad(mi);
+  }
+
+  function startKey(ev){ var a = ev.start || {}; return String(a.dateTime || a.date || "").slice(0,10); }
+  function startClock(ev){ var a = ev.start || {}; return a.dateTime ? String(a.dateTime).slice(11,16) : null; }
+  function coversToday(ev, key){
+    var a = ev.start || {}, b = ev.end || {};
+    var sd = startKey(ev);
+    if (!sd) return false;
+    if (a.dateTime) return sd === key;                 // 시각이 있는 일정은 그날 하루
+    var ed = String(b.date || b.dateTime || "").slice(0,10);
+    if (!ed || ed <= sd) return sd === key;            // 종일 하루짜리
+    return key >= sd && key < ed;                      // 종일 여러 날 (끝날짜는 미포함)
+  }
+
+  function calErrMsg(e){
+    switch (e && e.code){
+      case "needs_reauth":
+        return "구글 캘린더 연결이 만료됐습니다. claude.ai 설정 → 커넥터에서 다시 연결해 주세요.";
+      case "server_not_connected":
+        return "구글 캘린더 커넥터가 연결돼 있지 않습니다. claude.ai 설정 → 커넥터에서 추가해 주세요.";
+      case "selection_required":
+        return "연결된 구글 캘린더가 여러 개입니다. 어느 것을 쓸지 한 번 골라 주세요.";
+      case "blocked_by_policy":
+      case "approval_required":
+        return "조직 정책으로 캘린더 읽기가 막혀 있습니다.";
+      case "not_in_manifest":
+        return "이 페이지에 캘린더 읽기 권한이 없습니다.";
+      case "server_unavailable":
+        return "구글 캘린더가 잠시 응답하지 않습니다. 잠시 후 다시 시도됩니다.";
+      default:
+        return "캘린더를 불러오지 못했습니다" + (e && e.code ? " (" + e.code + ")" : "") + ".";
+    }
+  }
+
+  function calRow(x, isToday){
+    var ev = x.ev, clock = startClock(ev), call = clock || pickTime(ev.summary);
+    var when = isToday ? "오늘" : startKey(ev).slice(5).replace("-", "/");
+    var sub = x.cal + (clock ? "" : " · 종일");
+    var btn = call
+      ? '<button class="calbtn" data-call="' + call + '">촬영표 ' + call + '</button>'
+      : '<button class="calbtn" data-call="">촬영표</button>';
+    return '<div class="calrow' + (isToday ? " on" : "") + '">' +
+             '<span class="when">' + when + (clock ? "<br>" + clock : "") + '</span>' +
+             '<span class="what"><b>' + esc(ev.summary || "(제목 없음)") + '</b><em>' + esc(sub) + '</em></span>' +
+             btn +
+           '</div>';
+  }
+  function esc(t){
+    return String(t == null ? "" : t)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  function renderCal(){
+    var names = Object.keys(calState);
+    if (!names.length) return;
+    $("#calBox").hidden = false;
+    var body = $("#calBody");
+
+    var errs = [], all = [];
+    names.forEach(function(n){
+      var st = calState[n];
+      if (st.err) errs.push(st.err);
+      (st.events || []).forEach(function(e){ if (e && e.status !== "cancelled") all.push({ cal:n, ev:e }); });
+    });
+
+    if (errs.length === names.length && !all.length){
+      body.innerHTML = '<p class="calnote">' + calErrMsg(errs[0]) + '</p>';
+      return;
+    }
+
+    var today = [], soon = [];
+    all.forEach(function(x){
+      if (coversToday(x.ev, DATE_KEY)) today.push(x);
+      else if (startKey(x.ev) > DATE_KEY) soon.push(x);
+    });
+    soon.sort(function(a,b){ return startKey(a.ev) < startKey(b.ev) ? -1 : 1; });
+    soon = soon.slice(0, 4);
+
+    var html = "";
+    if (!today.length && !soon.length){
+      html += '<p class="calnote">앞으로 4주간 잡힌 촬영·미팅이 없습니다.</p>';
+    }
+    today.forEach(function(x){ html += calRow(x, true); });
+    if (soon.length){
+      html += '<p class="calnote">다가오는 일정</p>';
+      soon.forEach(function(x){ html += calRow(x, false); });
+    }
+    if (errs.length) html += '<p class="calnote">' + calErrMsg(errs[0]) + '</p>';
+    body.innerHTML = html;
+
+    Array.prototype.forEach.call(body.querySelectorAll(".calbtn"), function(b){
+      b.onclick = function(){
+        state.mode = "shoot";
+        if (b.getAttribute("data-call")) state.call = b.getAttribute("data-call");
+        save(); render();
+        var box = $("#shootBox");
+        if (box && box.scrollIntoView) box.scrollIntoView({ behavior:"smooth", block:"center" });
+      };
+    });
+  }
+
+  function renderTodo(){
+    var body = $("#todoBody");
+    if (!body) return;
+    var items = [], errs = [];
+
+    Object.keys(todoState).forEach(function(n){
+      var st = todoState[n];
+      if (st.err) errs.push(st.err);
+      (st.events || []).forEach(function(e){
+        if (!e || e.status === "cancelled") return;
+        if (!coversToday(e, DATE_KEY)) return;                    // 오늘 것만
+        items.push({ key:"cal:" + e.id, title:e.summary || "(제목 없음)",
+                     clock:startClock(e), from:n, cal:true });
+      });
+    });
+    items.sort(function(a,b){ return (a.clock || "99") < (b.clock || "99") ? -1 : 1; });
+
+    (state.extra || []).forEach(function(x){
+      items.push({ key:x.id, title:x.t, clock:null, from:"직접 추가", cal:false });
+    });
+
+    var done = items.filter(function(i){ return state.todoDone[i.key]; }).length;
+    $("#todoCount").textContent = items.length ? done + " / " + items.length : "";
+
+    if (!items.length){
+      body.innerHTML = '<p class="calnote">' +
+        (errs.length ? calErrMsg(errs[0]) : "오늘 캘린더에 잡힌 일정이 없습니다. 아래에 직접 적어도 됩니다.") +
+        '</p>';
+      return;
+    }
+
+    var html = "";
+    items.forEach(function(i){
+      var meta = (i.clock ? i.clock + " · " : "") + i.from;
+      var btn = '<button type="button" class="todoItem' + (state.todoDone[i.key] ? " done" : "") + '"' +
+                ' data-k="' + esc(i.key) + '" aria-pressed="' + (!!state.todoDone[i.key]) + '">' +
+                  '<span class="box">' + CHECK + '</span>' +
+                  '<span class="what"><b>' + esc(i.title) + '</b><em>' + esc(meta) + '</em></span>' +
+                '</button>';
+      html += i.cal ? btn
+            : '<div class="todoWrap">' + btn +
+              '<button type="button" class="del" data-del="' + esc(i.key) + '" aria-label="지우기">✕</button></div>';
+    });
+    if (errs.length) html += '<p class="calnote">' + calErrMsg(errs[0]) + '</p>';
+    body.innerHTML = html;
+
+    Array.prototype.forEach.call(body.querySelectorAll(".todoItem"), function(b){
+      b.onclick = function(){
+        var k = b.getAttribute("data-k");
+        if (state.todoDone[k]) delete state.todoDone[k]; else state.todoDone[k] = true;
+        save(); renderTodo();
+      };
+    });
+    Array.prototype.forEach.call(body.querySelectorAll(".del"), function(b){
+      b.onclick = function(){
+        var k = b.getAttribute("data-del");
+        state.extra = (state.extra || []).filter(function(x){ return x.id !== k; });
+        delete state.todoDone[k];
+        save(); renderTodo();
+      };
+    });
+  }
+
+  $("#addForm").onsubmit = function(e){
+    e.preventDefault();
+    var inp = $("#addInput"), t = inp.value.trim();
+    if (!t) return;
+    state.extra = state.extra || [];
+    state.extra.push({ id:"x" + Date.now().toString(36), t:t });
+    inp.value = "";
+    save(); renderTodo();
+  };
+
+  function initTodoCals(mcp){
+    var from = new Date(NOW_DATE.getFullYear(), NOW_DATE.getMonth(), NOW_DATE.getDate());
+    var to   = new Date(NOW_DATE.getFullYear(), NOW_DATE.getMonth(), NOW_DATE.getDate() + 1);
+    TODO_CALS.forEach(function(c){
+      todoState[c.name] = { err:null, events:[] };
+      mcp.watchTool("Google Calendar", "list_events", {
+        calendarId: c.id,
+        startTime: keyOf(from) + "T00:00:00+09:00",
+        endTime:   keyOf(to)   + "T23:59:59+09:00",
+        orderBy: "startTime",
+        pageSize: 25
+      }, function(e){
+        if (e.type === "error"){
+          todoState[c.name].err = e.error;
+          var hard = { needs_reauth:1, server_not_connected:1, blocked_by_policy:1, approval_required:1, not_in_manifest:1 };
+          if (hard[e.error && e.error.code]) todoState[c.name].events = [];
+        } else {
+          var pl = e.result && e.result.payload;
+          todoState[c.name] = { err:null, events:(pl && pl.events) || [] };
+        }
+        renderTodo();
+      }, { refetchInterval: 600000 });
+    });
+  }
+
+  function initCal(mcp){
+    var from = new Date(NOW_DATE.getFullYear(), NOW_DATE.getMonth(), NOW_DATE.getDate());
+    var to   = new Date(NOW_DATE.getFullYear(), NOW_DATE.getMonth(), NOW_DATE.getDate() + 28);
+    CALS.forEach(function(c){
+      calState[c.name] = { err:null, events:[] };
+      mcp.watchTool("Google Calendar", "list_events", {
+        calendarId: c.id,
+        startTime: keyOf(from) + "T00:00:00+09:00",
+        endTime:   keyOf(to)   + "T23:59:59+09:00",
+        orderBy: "startTime",
+        pageSize: 25
+      }, function(e){
+        if (e.type === "error"){
+          calState[c.name].err = e.error;
+          // 일시적인 오류면 이미 받아둔 목록은 그대로 두고, 권한 문제면 지웁니다
+          var hard = { needs_reauth:1, server_not_connected:1, blocked_by_policy:1, approval_required:1, not_in_manifest:1 };
+          if (hard[e.error && e.error.code]) calState[c.name].events = [];
+        } else {
+          var pl = e.result && e.result.payload;
+          calState[c.name] = { err:null, events:(pl && pl.events) || [] };
+        }
+        renderCal();
+      }, { refetchInterval: 600000 });
+    });
+  }
+
+  if (window.claude && window.claude.use){
+    window.claude.use("mcp").then(function(mcp){ if (mcp){ initCal(mcp); initTodoCals(mcp); } }).catch(function(){});
+  }
 
   // 서버 저장소가 있으면 연결해서 폰·노트북이 같은 기록을 보게 함
   if (window.claude && window.claude.use){
