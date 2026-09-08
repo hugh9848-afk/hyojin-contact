@@ -212,7 +212,7 @@ h1{
 }
 .calrow.on{border-color:var(--brass); background:var(--brass-soft)}
 .calrow .when{
-  font-family:var(--mono); font-size:11px; color:var(--faint); flex:none; width:46px;
+  font-family:var(--mono); font-size:11px; color:var(--faint); flex:none; width:58px;
   font-variant-numeric:tabular-nums; padding-top:2px; line-height:1.35;
 }
 .calrow.on .when{color:var(--brass)}
@@ -901,7 +901,10 @@ img{max-width:100%}
 
   function calRow(x, isToday){
     var ev = x.ev, clock = startClock(ev), call = clock || pickTime(ev.summary);
-    var when = isToday ? "오늘" : startKey(ev).slice(5).replace("-", "/");
+    var k = startKey(ev);
+    // 09/10 만 있으면 무슨 요일인지 감이 안 오니 요일을 붙입니다
+    var when = isToday ? "오늘"
+                       : k.slice(5).replace("-", "/") + " " + DOW[new Date(k + "T00:00:00").getDay()];
     var sub = x.cal + (clock ? "" : " · 종일");
     var btn = call
       ? '<button class="calbtn" data-call="' + call + '">촬영표 ' + call + '</button>'
