@@ -62,6 +62,17 @@ body{
 /* ---------- header ---------- */
 .head{display:flex; flex-direction:column; gap:14px}
 .datebar{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap}
+.nav{
+  font-family:var(--mono); font-size:16px; line-height:1; color:var(--muted); cursor:pointer;
+  background:transparent; border:1px solid var(--line); border-radius:7px; padding:3px 9px 5px;
+}
+.nav:hover{color:var(--text); border-color:var(--faint)}
+.nav:focus-visible{outline:2px solid var(--brass); outline-offset:2px}
+.rel{font-family:var(--mono); font-size:11px; letter-spacing:.06em; color:var(--brass)}
+.day{font-family:inherit; cursor:pointer}
+.day:hover{border-color:var(--faint)}
+.day:focus-visible{outline:2px solid var(--brass); outline-offset:2px}
+
 .date{font-family:var(--mono); font-size:13px; letter-spacing:.04em; color:var(--muted); font-variant-numeric:tabular-nums}
 h1{
   margin:0; font-size:27px; font-weight:600; letter-spacing:-.02em;
@@ -324,7 +335,11 @@ img{max-width:100%}
   <header class="head">
     <div>
       <div class="datebar">
+        <button class="nav" id="prevDay" aria-label="하루 전">‹</button>
         <span class="date" id="date"></span>
+        <button class="nav" id="nextDay" aria-label="하루 뒤">›</button>
+        <span class="rel" id="rel"></span>
+        <button class="chip" id="todayBtn" hidden>오늘로</button>
       </div>
       <h1 id="title">하루 운영표</h1>
     </div>
@@ -415,8 +430,10 @@ img{max-width:100%}
   function keyOf(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
   function toMin(t){ var p = t.split(":"); return (+p[0])*60 + (+p[1]); }
 
-  var NOW_DATE = new Date();
-  var DATE_KEY = keyOf(NOW_DATE);
+  var REAL_NOW  = new Date();                 // 진짜 지금 (시각 표시·'지금' 칸 판정용)
+  var TODAY_KEY = keyOf(REAL_NOW);
+  var NOW_DATE  = new Date(REAL_NOW.getFullYear(), REAL_NOW.getMonth(), REAL_NOW.getDate());
+  var DATE_KEY  = keyOf(NOW_DATE);             // 지금 보고 있는 날 (앞뒤로 옮길 수 있음)
 
   // ---- 하루 계획표 원본. 요일에 따라 셋 중 하나를 씀 ----
   var PLANS = {
@@ -470,6 +487,7 @@ img{max-width:100%}
   var state = { mode:null, done:{}, lines:["","",""], lean:false, call:"10:00", travel:60, todoDone:{}, extra:[] };
   var db = null, unsub = null, myStamp = null, saveTimer = null;
   var calState = {}, todoState = {};   // 캘린더에서 받아온 것을 담아두는 상자
+  var mcpRef = null, calUnsubs = [];   // 날짜를 옮기면 캘린더도 다시 불러와야 해서 보관
 
   function activeMode(){ return state.mode || autoMode(NOW_DATE); }
   function plan(){ return activeMode() === "shoot" ? buildShoot() : PLANS[activeMode()]; }
@@ -518,7 +536,7 @@ img{max-width:100%}
   }
 
   // ---------- 저장 / 불러오기 ----------
-  var LS = "routine:" + DATE_KEY;
+  function LSKEY(){ return "routine:" + DATE_KEY; }
   function payload(){
     return { date:DATE_KEY, mode:state.mode, done:state.done, lines:state.lines, lean:state.lean, call:state.call, travel:state.travel, todoDone:state.todoDone, extra:state.extra, stamp:myStamp };
   }
@@ -537,7 +555,7 @@ img{max-width:100%}
   function save(){
     myStamp = String(Date.now()) + "-" + Math.random().toString(36).slice(2,7);
     var p = payload();
-    try { localStorage.setItem(LS, JSON.stringify(p)); } catch(e){}
+    try { localStorage.setItem(LSKEY(), JSON.stringify(p)); } catch(e){}
     if (!db) return;
     clearTimeout(saveTimer);
     saveTimer = setTimeout(function(){
@@ -556,6 +574,8 @@ img{max-width:100%}
 
   function renderHead(){
     $("#date").textContent = DATE_KEY.replace(/-/g,".");
+    $("#rel").textContent = relLabel(DATE_KEY);
+    $("#todayBtn").hidden = (DATE_KEY === TODAY_KEY);
     var p = plan();
     // 오늘이 화요일인데 표도 '화요일'이면 같은 말이 두 번 나오므로 하나만 씁니다
     var dow = DOW[NOW_DATE.getDay()] + "요일";
@@ -595,8 +615,8 @@ img{max-width:100%}
     var tl = $("#timeline");
     tl.innerHTML = "";
     tl.className = "tl" + (state.lean ? " lean" : "");
-    var nowMin = NOW_DATE.getHours()*60 + NOW_DATE.getMinutes();
-    var isToday = DATE_KEY === keyOf(new Date());
+    var nowMin = REAL_NOW.getHours()*60 + REAL_NOW.getMinutes();
+    var isToday = DATE_KEY === TODAY_KEY;
 
     plan().blocks.forEach(function(b){
       if (b.marker){
@@ -698,6 +718,69 @@ img{max-width:100%}
       m2s(p.wake) + " 기상 · " + m2s(p.leave) + " 출발. 오늘 지킬 건 이것뿐이고, 내일 07:00 기상으로 돌아오면 됩니다.";
   }
 
+  // 보고 있는 날이 오늘에서 며칠 떨어졌는지 한글로
+  function relLabel(k){
+    var a = new Date(k + "T00:00:00"), b = new Date(TODAY_KEY + "T00:00:00");
+    var diff = Math.round((a - b) / 86400000);
+    if (diff === 0) return "오늘";
+    if (diff === 1) return "내일";
+    if (diff === 2) return "모레";
+    if (diff === -1) return "어제";
+    return (diff > 0 ? "+" : "") + diff + "일";
+  }
+  function rebuildLines(){ var b = $("#lines"); b.dataset.built = ""; b.innerHTML = ""; }
+
+  // 다른 날짜로 옮기기 — 계획표·캘린더·저장기록이 모두 그 날 기준으로 다시 채워집니다
+  function switchTo(key, d){
+    if (key === DATE_KEY) return;
+    NOW_DATE = d; DATE_KEY = key; myStamp = null;
+    state = { mode:null, done:{}, lines:["","",""], lean:false,
+              call:"10:00", travel:60, todoDone:{}, extra:[] };
+    try { var c = localStorage.getItem(LSKEY()); if (c) apply(JSON.parse(c)); } catch(e){}
+    rebuildLines(); render();
+    subscribeDay(); refreshWeek(); startCals();
+  }
+  function shiftDay(n){
+    var d = new Date(NOW_DATE.getFullYear(), NOW_DATE.getMonth(), NOW_DATE.getDate() + n);
+    switchTo(keyOf(d), d);
+  }
+
+  // 서버 저장소에서 그날 기록을 듣기 시작 (날짜를 옮기면 다시 겁니다)
+  function subscribeDay(){
+    if (!db) return;
+    if (unsub){ try { unsub(); } catch(e){} unsub = null; }
+    var k = DATE_KEY;
+    unsub = db.doc("days/" + k).onSnapshot(function(snap){
+      if (k !== DATE_KEY) return;                 // 날짜를 옮긴 뒤 늦게 온 것은 버림
+      if (snap.metadata.hasPendingWrites) return;
+      var d = snap.data();
+      if (!d || d.stamp === myStamp) return;
+      apply(d); rebuildLines(); render();
+    }, function(){
+      $("#sync").classList.remove("ok");
+      $("#syncText").textContent = "이 기기에만 저장";
+    });
+  }
+
+  function refreshWeek(){
+    if (!db){ renderWeek({}); return; }
+    var keys = [], k = DATE_KEY;
+    for (var i = 6; i >= 0; i--){
+      var d2 = new Date(NOW_DATE.getFullYear(), NOW_DATE.getMonth(), NOW_DATE.getDate() - i);
+      keys.push(keyOf(d2));
+    }
+    Promise.all(keys.map(function(kk){
+      return db.doc("days/" + kk).get()
+               .then(function(sn){ return sn.exists ? { k:kk, v:sn.data() } : null; })
+               .catch(function(){ return null; });
+    })).then(function(rows){
+      if (k !== DATE_KEY) return;
+      var recs = {};
+      rows.forEach(function(r){ if (r) recs[r.k] = r.v; });
+      renderWeek(recs);
+    });
+  }
+
   function render(){ renderHead(); renderShoot(); renderSpine(); renderTimeline(); renderTodo(); renderLines(); renderLean(); }
 
   // ---------- 지난 7일 ----------
@@ -713,8 +796,11 @@ img{max-width:100%}
       var done = rec && rec.done ? Object.keys(rec.done).length : 0;
       var pct = total ? done/total : 0;
 
-      var el = document.createElement("div");
+      var el = document.createElement("button");
+      el.type = "button";
       el.className = "day" + (k === DATE_KEY ? " today" : "");
+      el.setAttribute("aria-label", k);
+      (function(kk, dd){ el.onclick = function(){ switchTo(kk, dd); }; })(k, d);
       var deg = Math.round(pct * 360);
       var ring = done
         ? '<span class="ring" style="background:conic-gradient(var(--brass) ' + deg + 'deg, var(--line-soft) 0)"></span>'
@@ -727,12 +813,18 @@ img{max-width:100%}
 
   // ---------- 시작 ----------
   try {
-    var cached = localStorage.getItem(LS);
+    var cached = localStorage.getItem(LSKEY());
     if (cached) apply(JSON.parse(cached));
   } catch(e){}
   render();
   renderWeek({});
 
+  $("#prevDay").onclick  = function(){ shiftDay(-1); };
+  $("#nextDay").onclick  = function(){ shiftDay(1); };
+  $("#todayBtn").onclick = function(){
+    var t = new Date(REAL_NOW.getFullYear(), REAL_NOW.getMonth(), REAL_NOW.getDate());
+    switchTo(TODAY_KEY, t);
+  };
   $("#callTime").oninput = function(){ state.call = this.value || "10:00"; save(); render(); };
   $("#travel").onchange  = function(){ state.travel = +this.value; save(); render(); };
   $("#lean").onclick = function(){ state.lean = !state.lean; save(); render(); };
@@ -740,7 +832,7 @@ img{max-width:100%}
   $("#reset").onclick = function(){
     state.done = {}; state.lines = ["","",""]; state.lean = false;
     state.todoDone = {}; state.extra = [];
-    var box = $("#lines"); box.dataset.built = ""; box.innerHTML = "";
+    rebuildLines();
     save(); render();
   };
 
@@ -952,7 +1044,7 @@ img{max-width:100%}
     var to   = new Date(NOW_DATE.getFullYear(), NOW_DATE.getMonth(), NOW_DATE.getDate() + 1);
     TODO_CALS.forEach(function(c){
       todoState[c.name] = { err:null, events:[] };
-      mcp.watchTool("Google Calendar", "list_events", {
+      calUnsubs.push(mcp.watchTool("Google Calendar", "list_events", {
         calendarId: c.id,
         startTime: keyOf(from) + "T00:00:00+09:00",
         endTime:   keyOf(to)   + "T23:59:59+09:00",
@@ -968,7 +1060,7 @@ img{max-width:100%}
           todoState[c.name] = { err:null, events:(pl && pl.events) || [] };
         }
         renderTodo();
-      }, { refetchInterval: 600000 });
+      }, { refetchInterval: 600000 }));
     });
   }
 
@@ -977,7 +1069,7 @@ img{max-width:100%}
     var to   = new Date(NOW_DATE.getFullYear(), NOW_DATE.getMonth(), NOW_DATE.getDate() + 28);
     CALS.forEach(function(c){
       calState[c.name] = { err:null, events:[] };
-      mcp.watchTool("Google Calendar", "list_events", {
+      calUnsubs.push(mcp.watchTool("Google Calendar", "list_events", {
         calendarId: c.id,
         startTime: keyOf(from) + "T00:00:00+09:00",
         endTime:   keyOf(to)   + "T23:59:59+09:00",
@@ -994,12 +1086,20 @@ img{max-width:100%}
           calState[c.name] = { err:null, events:(pl && pl.events) || [] };
         }
         renderCal();
-      }, { refetchInterval: 600000 });
+      }, { refetchInterval: 600000 }));
     });
   }
 
+  function startCals(){
+    calUnsubs.forEach(function(u){ try { u(); } catch(e){} });
+    calUnsubs = []; calState = {}; todoState = {};
+    if (!mcpRef){ renderTodo(); return; }
+    initCal(mcpRef); initTodoCals(mcpRef);
+    renderTodo();
+  }
+
   if (window.claude && window.claude.use){
-    window.claude.use("mcp").then(function(mcp){ if (mcp){ initCal(mcp); initTodoCals(mcp); } }).catch(function(){});
+    window.claude.use("mcp").then(function(mcp){ if (mcp){ mcpRef = mcp; startCals(); } }).catch(function(){});
   }
 
   // 서버 저장소가 있으면 연결해서 폰·노트북이 같은 기록을 보게 함
@@ -1010,32 +1110,8 @@ img{max-width:100%}
       $("#sync").classList.add("ok");
       $("#syncText").textContent = "기기 간 동기화 중";
 
-      unsub = db.doc("days/" + DATE_KEY).onSnapshot(function(snap){
-        if (snap.metadata.hasPendingWrites) return;
-        var d = snap.data();
-        if (!d || d.stamp === myStamp) return;
-        apply(d);
-        var box = $("#lines"); box.dataset.built = ""; box.innerHTML = "";
-        render();
-      }, function(){
-        $("#sync").classList.remove("ok");
-        $("#syncText").textContent = "이 기기에만 저장";
-      });
-
-      var keys = [];
-      for (var i = 6; i >= 0; i--){
-        var d2 = new Date(NOW_DATE.getFullYear(), NOW_DATE.getMonth(), NOW_DATE.getDate() - i);
-        keys.push(keyOf(d2));
-      }
-      Promise.all(keys.map(function(k){
-        return db.doc("days/" + k).get().then(function(s){
-          return s.exists ? { k:k, v:s.data() } : null;
-        }).catch(function(){ return null; });
-      })).then(function(rows){
-        var recs = {};
-        rows.forEach(function(r){ if (r) recs[r.k] = r.v; });
-        renderWeek(recs);
-      });
+      subscribeDay();
+      refreshWeek();
     }).catch(function(){});
   }
 })();
