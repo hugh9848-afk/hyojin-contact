@@ -62,6 +62,9 @@ var API = window.HYOJIN_API;
   .no{display:inline-block;min-width:17px;margin-right:6px;text-align:right;
     font-size:12px;color:#98a0ab;font-weight:600;font-variant-numeric:tabular-nums}
   .cnt{padding:2px 2px 9px;font-size:12.5px;color:#667;font-weight:600}
+  .tip{margin:0 0 8px;padding:7px 10px;border-radius:8px;background:#eef3ff;
+    color:#3b4a63;font-size:12.5px;line-height:1.4}
+  .tip b{color:#1f3d78}
   .tels{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
   a.tel{display:inline-flex;align-items:baseline;gap:6px;background:#f4f7fb;
     border:1px solid #d9e2ef;border-radius:8px;padding:7px 11px;font-size:14.5px;
@@ -96,7 +99,9 @@ var API = window.HYOJIN_API;
   .hdate{min-width:54px;padding:7px 4px;text-align:center;font-size:12px;line-height:1.25;
     background:#f7f8fa;color:#445;border-bottom:1px solid #e3e6ea;font-weight:600;
     border-left:1px solid #eef0f3;cursor:default}
-  .hdate.adm{cursor:pointer}
+  /* 실장님 화면에서는 날짜 칸이 '휴강 버튼'입니다 — 눌러도 되는 곳임을 점선으로 알립니다 */
+  .hdate.adm{cursor:pointer;text-decoration:underline dotted #a8b0bd;text-underline-offset:3px}
+  .hdate.adm:active{background:#e9edf5}
   .hdate .dw{display:block;font-size:10.5px;color:#8a90a0;font-weight:500}
   .hdate.hol{background:#e6e6e6;color:#777}
   .cell{min-width:54px;height:40px;text-align:center;font-size:13.5px;font-weight:600;
@@ -516,6 +521,12 @@ var API = window.HYOJIN_API;
       return h + '<div class="card"><div class="msg">이 달에는 수업일이 없습니다.</div></div>';
     }
 
+    // 실장님에게는 휴강 바꾸는 법을 한 줄로 알려 줍니다 (날짜 칸이 버튼이라는 걸 모르기 쉬워요)
+    if (MONTH.isAdmin) {
+      var 첫날 = (MONTH.dates[0] || '').split('-');          // '2026-09-05' → 9/5 로 보여줍니다
+      h += '<div class="tip">날짜(예: ' + (+첫날[1]) + '/' + (+첫날[2])
+        +  ')를 누르면 그 날을 <b>휴강</b>으로 바꿉니다. 한 번 더 누르면 풀립니다.</div>';
+    }
     h += '<div class="gridwrap"><table><thead><tr><th class="hname">학생 ('
       + MONTH.students.length + '명)</th>';
     MONTH.dates.forEach(function (d) {
