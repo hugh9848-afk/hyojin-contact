@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  맥미니가 켜지면 통화기록 도구를 저절로 돌게 하는 설정입니다.
+
+  1) 아래 /Users/kemi 부분을 실제 사용자 폴더 이름으로 바꾸세요.
+  2) 이 파일을 ~/Library/LaunchAgents/com.hyojin.callnotes.plist 로 복사합니다.
+  3) 터미널에서:
+       launchctl unload ~/Library/LaunchAgents/com.hyojin.callnotes.plist 2>/dev/null
+       launchctl load  ~/Library/LaunchAgents/com.hyojin.callnotes.plist
+  4) 잘 도는지: tail -f ~/Library/Logs/hyojin-callnotes.log
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.hyojin.callnotes</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/python3</string>
+    <string>/Users/kemi/hyojin-contact/tools/callnotes/callnotes.py</string>
+    <string>--watch</string>
+  </array>
+
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/kemi/Library/Logs/hyojin-callnotes.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/kemi/Library/Logs/hyojin-callnotes.log</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>LANG</key>
+    <string>ko_KR.UTF-8</string>
+  </dict>
+</dict>
+</plist>

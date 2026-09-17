@@ -16,6 +16,7 @@
 <link rel="manifest" href="calls.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<script src="config.js"></script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&display=swap">
 <style>
 :root{
@@ -212,6 +213,9 @@ body{
 
 /* ── 통화 전문 ───────────────────────── */
 .doc{font-family:var(--mono);font-size:11px;color:var(--faint);white-space:nowrap}
+.tag.auto{background:var(--teal-soft);color:var(--teal)}
+.iconbtn.busy{opacity:.5}
+.synced{font-family:var(--mono);font-size:11.5px;color:var(--faint);text-align:center;padding:6px 0 0}
 details.full{
   background:var(--surface);border:1px solid var(--line-soft);border-radius:12px;
   padding:0;margin-bottom:12px;overflow:hidden;
@@ -237,6 +241,7 @@ details.full .body{
     <h1>통화기록</h1>
     <span class="cnt" id="cnt"></span>
     <span class="sp"></span>
+    <button class="iconbtn" id="btn-sync" title="맥미니에서 새 통화 받아오기">새로고침</button>
     <button class="iconbtn" id="btn-help">도움말</button>
     <button class="iconbtn" id="btn-backup">백업</button>
   </div>
@@ -251,6 +256,7 @@ details.full .body{
   <div class="chips" id="chips"></div>
 
   <div id="list"></div>
+  <div class="synced" id="synced"></div>
 </div>
 
 <button class="fab" id="fab">＋ 통화 기록하기</button>
@@ -358,29 +364,37 @@ details.full .body{
 <!-- 도움말 -->
 <div class="sheet" id="sheet-help">
   <div class="panel">
-    <h2>통화 내용을 여기로 가져오는 법</h2>
+    <h2>통화기록은 이렇게 채워집니다</h2>
 
-    <div class="daylabel">1. 전화앱에서 자동 텍스트 변환 켜기 (한 번만)</div>
-    <div class="dmemo">전화 › 오른쪽 위 ⋮ › 설정 › 통화 녹음 › 텍스트 변환 어시스트
-› '통화 녹음 및 다이렉트 음성 메시지를 텍스트로 자동 변환' 켜기
-› 텍스트 변환 언어를 한국어로</div>
+    <div class="daylabel">평소에는 — 아무것도 안 하셔도 됩니다</div>
+    <div class="dmemo">학원폰으로 전화를 받고 끊으면 끝입니다.
 
-    <div class="daylabel">2. 통화가 끝나면</div>
-    <div class="dmemo">통화 중에 녹음 단추를 눌러 두었다면,
-전화 › 최근기록 › 그 통화 선택 › 변환된 텍스트(또는 요약) › 복사
+폰이 통화를 녹음 → 구글드라이브로 올라감 → 맥미니가 글로 옮기고
+요약·학생·반·후속조치까지 붙여서 이 화면으로 보냅니다.
+보통 통화가 끝나고 2~5분 뒤에 '자동' 표가 붙은 채로 나타납니다.
 
-이 앱에서 ＋ 통화 기록하기 › 통화 전문 칸에 📋 붙여넣기
-› ✎ 핵심 문장 뽑기 를 누르면 요약 칸이 채워집니다. 손보고 저장하세요.</div>
+바로 보고 싶으면 위쪽 새로고침을 누르세요.</div>
 
-    <div class="daylabel">3. 더 빠르게 — 공유로 바로 보내기</div>
-    <div class="dmemo">이 화면을 홈 화면에 추가해 두면(브라우저 메뉴 › 홈 화면에 추가),
-전화앱에서 텍스트를 '공유'할 때 목록에 통화기록이 나타납니다.
-거기로 보내면 전문이 채워진 채로 이 앱이 열립니다.</div>
+    <div class="daylabel">안 올라왔을 때 — 손으로 적기</div>
+    <div class="dmemo">맥미니가 꺼져 있었거나 녹음이 안 된 통화는 직접 남기면 됩니다.
+
+＋ 통화 기록하기 › 이름을 적으면 반이 저절로 채워집니다.
+
+전화앱이 만들어 둔 글이 있으면(전화 › 최근기록 › 통화 선택 › 변환된 텍스트 › 복사)
+통화 전문 칸에 📋 붙여넣기 › ✎ 핵심 문장 뽑기 를 누르세요.
+이 화면을 홈 화면에 추가해 두면, 전화앱에서 '공유'로 바로 보낼 수도 있습니다.</div>
+
+    <div class="daylabel">고치고 지우기</div>
+    <div class="dmemo">· 자동으로 온 기록을 고치면, 그 뒤로 맥미니가 덮어쓰지 않습니다.
+  (통화 전문만 최신으로 채워집니다)
+· 지운 기록은 새로고침해도 되살아나지 않습니다.
+· 요약이 엉뚱하면 그냥 고치세요. 낱말을 기준으로 고른 것이라 가끔 빗나갑니다.</div>
 
     <div class="daylabel">알아두실 것</div>
-    <div class="dmemo">· 웹앱은 폰의 통화목록을 스스로 읽지 못합니다. 위처럼 건네주셔야 합니다.
-· 적어둔 기록은 이 기계(이 브라우저) 안에만 있고 서버로 가지 않습니다.
-· 학부모와 나눈 이야기가 담기니, 백업 파일은 아무 데나 두지 마세요.</div>
+    <div class="dmemo">· 이 화면의 기록은 이 기계 안에만 있습니다. 원본은 맥미니에 있으니
+  폰을 바꾸면 새 폰에서 한 번 새로고침하면 됩니다.
+· 학부모와 나눈 이야기가 담깁니다. 받으신 주소(?v=... 가 붙은 것)를 남에게 넘기지 마세요.
+· 백업 파일도 아무 데나 두지 마세요.</div>
 
     <div class="acts"><button class="btn" data-act="close" type="button">닫기</button></div>
   </div>
@@ -578,15 +592,20 @@ details.full .body{
     if (r.cls && !opt.noCls) h += '<span class="tag cls">' + esc(r.cls) + '</span>';
     if (r.tag) h += '<span class="tag">' + esc(r.tag) + '</span>';
     if (r.star) h += '<span class="star">★</span>';
+    if (r.source === 'auto') h += '<span class="tag auto">자동</span>';
     if (r.text) h += '<span class="doc" title="통화 전문 있음">📄</span>';
     h += '<span class="sp"></span>';
-    h += '<span class="dir' + (r.dir === 'in' ? ' in' : '') + '">' + (r.dir === 'in' ? '↓받음' : '↑걸음') + '</span>';
+    h += dirHtml(r.dir);
     h += '<span class="tm">' + esc(opt.withDate ? (shortDate(r.at.slice(0, 10)) + ' ' + hhmm(r.at)) : hhmm(r.at)) + '</span>';
     h += '</div>';
     if (r.memo) h += '<div class="memo clip">' + esc(r.memo) + '</div>';
     h += todoHtml(r);
     h += '</button>';
     return h;
+  }
+  function dirLabel(d) { return d === 'in' ? '↓받음' : d === 'out' ? '↑걸음' : '통화'; }
+  function dirHtml(d) {
+    return '<span class="dir' + (d === 'in' ? ' in' : '') + '">' + dirLabel(d) + '</span>';
   }
   function todoHtml(r) {
     if (!r.todo || !r.todo.on) return '';
@@ -773,6 +792,9 @@ details.full .body{
       if (i >= 0) {
         rec.todo.done = todoOn ? !!(DB[i].todo && DB[i].todo.done) : false;
         rec.createdAt = DB[i].createdAt;
+        rec.source = DB[i].source;
+        rec.file = DB[i].file;
+        rec.edited = true;       // 손댄 기록은 맥미니 것이 와도 덮어쓰지 않습니다
         DB[i] = rec;
       }
     } else {
@@ -798,7 +820,7 @@ details.full .body{
   /* '나 :', '상대방:', '[00:12]' 같은 앞머리를 걷어냅니다 */
   function cleanLine(t) {
     return String(t)
-      .replace(/^\s*[\[(]?\d{1,2}:\d{2}(:\d{2})?[\])]?\s*/, '')
+      .replace(/^\s*[\[(]?\d{1,2}:\d{2}(?::\d{2})?(?:[.,]\d+)?(?:\s*-+>\s*\d{1,2}:\d{2}(?::\d{2})?(?:[.,]\d+)?)?[\])]?\s*/, '')
       .replace(/^\s*(나|저|본인|상대|상대방|발신자|수신자|통화자\s*\d*|화자\s*\d*|참석자\s*\d*)\s*[:：]\s*/, '')
       .trim();
   }
@@ -878,7 +900,7 @@ details.full .body{
     if (r.star) h += '<span class="star">★</span>';
     h += '</div>';
     h += '<div class="dmeta">' + esc(dayLabel(r.at.slice(0, 10)) + ' ' + hhmm(r.at))
-       + ' · ' + (r.dir === 'in' ? '받은 전화' : '건 전화')
+       + ' · ' + (r.dir === 'in' ? '받은 전화' : r.dir === 'out' ? '건 전화' : '통화')
        + ' · ' + esc(r.role || '') + '</div>';
     h += '<div class="dmemo">' + (r.memo ? esc(r.memo) : '<span style="color:var(--faint)">적어둔 요약이 없습니다.</span>') + '</div>';
     if (r.text) {
@@ -922,7 +944,7 @@ details.full .body{
     rs.forEach(function (r) {
       h += '<div class="tline">';
       h += '<div class="t">' + esc(dayLabel(r.at.slice(0, 10)) + ' ' + hhmm(r.at))
-         + ' · ' + (r.dir === 'in' ? '받음' : '걸음')
+         + ' · ' + dirLabel(r.dir)
          + (r.tag ? ' · ' + esc(r.tag) : '') + '</div>';
       if (r.memo) h += '<div class="memo">' + esc(r.memo) + '</div>';
       h += todoHtml(r);
@@ -968,7 +990,7 @@ details.full .body{
     var lines = rs.map(function (r) {
       var s = '[' + r.at.slice(0, 10) + ' ' + hhmm(r.at) + '] '
         + (r.name || '이름 없음') + (r.cls ? '(' + r.cls + ')' : '')
-        + ' · ' + (r.dir === 'in' ? '받음' : '걸음') + (r.tag ? ' · ' + r.tag : '');
+        + ' · ' + dirLabel(r.dir) + (r.tag ? ' · ' + r.tag : '');
       if (r.memo) s += '\n  ' + r.memo.replace(/\n/g, '\n  ');
       if (r.todo && r.todo.on && !r.todo.done) s += '\n  → 할 일: ' + (r.todo.text || '') + (r.todo.due ? ' (' + r.todo.due + '까지)' : '');
       return s;
@@ -1109,6 +1131,8 @@ details.full .body{
       if (act === 'person') { closeAll(); openPerson(b.getAttribute('data-name') || '이름 없음'); return; }
       if (act === 'del') {
         if (!confirm('이 통화기록을 지웁니다. 되돌릴 수 없습니다.')) return;
+        var goner = byId(id);
+        if (goner && goner.source === 'auto') addTomb(id);
         DB = DB.filter(function (r) { return r.id !== id; });
         save(); closeAll(); render(); return;
       }
@@ -1119,7 +1143,7 @@ details.full .body{
       }
       if (act === 'toggle') {
         var r = byId(id);
-        if (r && r.todo) { r.todo.done = !r.todo.done; save(); render(); openDetail(id); }
+        if (r && r.todo) { r.todo.done = !r.todo.done; r.edited = true; save(); render(); openDetail(id); }
       }
     }
     $('sheet-detail').addEventListener('click', sheetActions);
@@ -1129,6 +1153,7 @@ details.full .body{
     });
 
     /* 백업 창 */
+    $('btn-sync').addEventListener('click', function () { syncNow(false); });
     $('btn-help').addEventListener('click', function () { openSheet('sheet-help'); });
     $('sheet-help').addEventListener('click', sheetActions);
     $('btn-backup').addEventListener('click', function () { openSheet('sheet-backup'); });
@@ -1147,6 +1172,115 @@ details.full .body{
     /* 뒤로가기(안드로이드)로 창 닫기 */
     window.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') closeAll();
+    });
+  }
+
+  /* ═══ 맥미니가 정리해 둔 통화를 받아옵니다 ═══════════
+     맥미니 → (중계기) → 이 화면. 중계기 주소는 config.js 에 있고,
+     열쇠(토큰)는 처음 열 때 주소 뒤에 ?v=... 로 한 번 받아 적어 둡니다. */
+
+  var CALLS_API = window.HYOJIN_CALLS_API || '';
+  var TKEY = 'hyojin_calls_token';
+  var DKEY = 'hyojin_calls_deleted';   // 지운 자동 기록 (다시 받아와도 되살아나지 않게)
+  var SKEY = 'hyojin_calls_synced';
+  var TOKEN = '';
+  var seq = 0;
+
+  function readToken() {
+    var v = '';
+    try { v = new URLSearchParams(location.search).get('v') || ''; } catch (e) {}
+    if (v) { try { localStorage.setItem(TKEY, v); } catch (e) {} return v; }
+    try { return localStorage.getItem(TKEY) || ''; } catch (e) { return ''; }
+  }
+  function tombs() {
+    try { return JSON.parse(localStorage.getItem(DKEY) || '[]') || []; } catch (e) { return []; }
+  }
+  function addTomb(id) {
+    var t = tombs();
+    if (t.indexOf(id) < 0) t.push(id);
+    try { localStorage.setItem(DKEY, JSON.stringify(t.slice(-500))); } catch (e) {}
+  }
+
+  /* 앱스스크립트는 JSONP 로 받아옵니다 (명단 화면과 같은 방식) */
+  function askRelay(params, ok, fail) {
+    var name = '__hjc_' + (++seq);
+    var el = document.createElement('script'), timer;
+    function cleanup() {
+      clearTimeout(timer);
+      try { delete window[name]; } catch (e) { window[name] = undefined; }
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }
+    window[name] = function (res) { cleanup(); ok(res); };
+    el.onerror = function () { cleanup(); fail(new Error('연결하지 못했습니다')); };
+    timer = setTimeout(function () { cleanup(); fail(new Error('시간이 오래 걸립니다')); }, 30000);
+    var q = ['v=' + encodeURIComponent(TOKEN), 'callback=' + name];
+    for (var k in params) {
+      if (params.hasOwnProperty(k)) q.push(encodeURIComponent(k) + '=' + encodeURIComponent(params[k]));
+    }
+    el.src = CALLS_API + (CALLS_API.indexOf('?') < 0 ? '?' : '&') + q.join('&');
+    document.body.appendChild(el);
+  }
+
+  /* 받아온 것을 이미 있는 기록과 맞춰 끼웁니다.
+     손댄 기록(edited)은 덮어쓰지 않고 통화 전문만 채워 넣습니다. */
+  function mergeAuto(recs) {
+    if (!recs || !recs.length) return 0;
+    var gone = tombs(), at = {}, added = 0;
+    DB.forEach(function (r, i) { at[r.id] = i; });
+    recs.forEach(function (r) {
+      if (!r || !r.id) return;
+      if (gone.indexOf(r.id) >= 0) return;
+      if (!r.todo) r.todo = { on: false, text: '', due: '', done: false };
+      r.source = 'auto';
+      var i = at[r.id];
+      if (i === undefined) { DB.push(r); at[r.id] = DB.length - 1; added++; return; }
+      var mine = DB[i];
+      if (mine.edited) { mine.text = r.text || mine.text; return; }
+      r.edited = false;
+      DB[i] = r;
+    });
+    if (added || recs.length) save();
+    return added;
+  }
+
+  function showSynced() {
+    var t = '';
+    try { t = localStorage.getItem(SKEY) || ''; } catch (e) {}
+    var el = $('synced');
+    if (!CALLS_API) { el.textContent = ''; return; }
+    el.textContent = t ? ('맥미니에서 받아온 때 · ' + t) : '';
+  }
+
+  function syncNow(silent) {
+    if (!CALLS_API) {
+      if (!silent) alert('아직 맥미니와 이어지지 않았습니다.\nconfig.js 의 HYOJIN_CALLS_API 를 채워 주세요.');
+      return;
+    }
+    if (!TOKEN) {
+      if (!silent) alert('열쇠가 없습니다.\n받으신 주소(끝에 ?v=... 가 붙은 주소)로 한 번 열어 주세요.');
+      return;
+    }
+    var btn = $('btn-sync');
+    btn.classList.add('busy');
+    btn.textContent = '받는 중';
+    askRelay({ api: 'calls', limit: 500 }, function (res) {
+      btn.classList.remove('busy');
+      btn.textContent = '새로고침';
+      if (!res || !res.ok) {
+        if (!silent) alert((res && res.msg) || '받아오지 못했습니다.');
+        return;
+      }
+      var added = mergeAuto(res.records || []);
+      try {
+        localStorage.setItem(SKEY, new Date().toLocaleString('ko-KR',
+          { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
+      } catch (e) {}
+      fillDatalists(); render(); showSynced();
+      if (!silent) alert(added ? (added + '건을 새로 받아왔습니다.') : '새로 온 통화가 없습니다.');
+    }, function (e) {
+      btn.classList.remove('busy');
+      btn.textContent = '새로고침';
+      if (!silent) alert(e.message);
     });
   }
 
@@ -1172,7 +1306,10 @@ details.full .body{
   fillDatalists();
   render();
   loadClasses();
+  TOKEN = readToken();      // 공유로 들어온 글이 주소를 지우기 전에 열쇠부터 읽습니다
   takeShared();
+  showSynced();
+  if (CALLS_API && TOKEN) syncNow(true);
 })();
 </script>
 <script>

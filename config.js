@@ -6,3 +6,10 @@
    '새 배포' 를 누르면 주소가 바뀌어 화면이 서버를 못 찾습니다.
    ═══════════════════════════════════════════════════════════ */
 window.HYOJIN_API = "https://script.google.com/macros/s/AKfycbwxAAzyWCJzwKEz_tK8XK2dHY16sWn_OVPfjYdS-iEeLll5d3U4nyf0-XfEtr1CsSHv/exec";
+
+/* ═══════════════════════════════════════════════════════════
+   통화기록 중계기 주소 (tools/callnotes/appsscript_relay.gs 를
+   배포하면 나오는 웹 앱 URL). 비워 두면 통화기록 화면은
+   손으로 적은 기록만 씁니다 — 자동으로 받아오지 않습니다.
+   ═══════════════════════════════════════════════════════════ */
+window.HYOJIN_CALLS_API = "";
