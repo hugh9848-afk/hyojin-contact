@@ -1,0 +1,1186 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#EAEDF0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#101216" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="통화기록">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>통화기록</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2316181D'/%3E%3Cpath d='M11.4 9.2c.5-.5 1.3-.5 1.8.1l1.7 2.1c.4.5.4 1.2 0 1.7l-1 1.1c-.3.3-.3.7-.1 1 .9 1.6 2.4 3 4 3.9.3.2.8.1 1-.2l1-1.1c.4-.5 1.1-.6 1.7-.2l2.2 1.5c.6.4.7 1.3.2 1.8l-1 1.1c-.9 1-2.3 1.3-3.5.8-2.3-1-4.4-2.4-6.2-4.2-1.8-1.8-3.1-3.9-4-6.2-.4-1.2-.1-2.6.8-3.5z' fill='%23D9A055'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="calls.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#EAEDF0; --surface:#FFFFFF; --surface-2:#F3F5F8;
+  --text:#181B21; --muted:#5F6875; --faint:#8B94A1;
+  --line:#D3D9E0; --line-soft:#E4E8ED;
+  --brass:#A96C12; --brass-soft:#F0E2CC;
+  --teal:#2F6E6B; --teal-soft:#DCE9E8;
+  --red:#B03A32; --red-soft:#F6DFDD;
+  --shadow:0 1px 2px rgba(24,27,33,.06), 0 6px 16px -10px rgba(24,27,33,.18);
+  --sans:"IBM Plex Sans KR", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#101216; --surface:#191C22; --surface-2:#20242B;
+    --text:#E6E9ED; --muted:#8D96A3; --faint:#6C7583;
+    --line:#282D36; --line-soft:#232830;
+    --brass:#D9A055; --brass-soft:#3A2E1C;
+    --teal:#5DA6A1; --teal-soft:#1D2C2B;
+    --red:#E0736A; --red-soft:#33211F;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 6px 18px -12px rgba(0,0,0,.7);
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--text); font-family:var(--sans);
+  font-size:15px; line-height:1.55; -webkit-text-size-adjust:100%;
+  padding-bottom:calc(92px + env(safe-area-inset-bottom));
+}
+.wrap{max-width:660px;margin:0 auto;padding:14px 14px 0}
+
+/* ── 머리말 ───────────────────────────── */
+.top{display:flex;align-items:baseline;gap:10px;margin-bottom:12px}
+.top h1{font-size:19px;font-weight:700;margin:0;letter-spacing:-.2px}
+.top .cnt{font-family:var(--mono);font-size:12.5px;color:var(--faint)}
+.top .sp{flex:1}
+.iconbtn{
+  background:var(--surface);border:1px solid var(--line);border-radius:9px;
+  padding:6px 10px;font-family:inherit;font-size:13px;color:var(--muted);
+  cursor:pointer;font-weight:500;
+}
+
+/* ── 탭 ───────────────────────────────── */
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tab{
+  flex:1;padding:9px 6px;border:1px solid var(--line);background:var(--surface);
+  border-radius:10px;font-family:inherit;font-size:14px;font-weight:600;
+  color:var(--muted);cursor:pointer;position:relative;
+}
+.tab.on{background:var(--text);border-color:var(--text);color:var(--bg)}
+.tab .dot{
+  display:inline-block;min-width:17px;padding:0 4px;margin-left:5px;
+  background:var(--red);color:#fff;border-radius:9px;
+  font-family:var(--mono);font-size:11px;font-weight:600;line-height:17px;vertical-align:1px;
+}
+.tab.on .dot{background:var(--bg);color:var(--text)}
+
+/* ── 검색·거르개 ──────────────────────── */
+.search{
+  width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:10px;
+  background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;
+  margin-bottom:9px;
+}
+.search:focus{outline:2px solid var(--teal);outline-offset:-1px}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:9px;margin-bottom:3px;-webkit-overflow-scrolling:touch}
+.chips::-webkit-scrollbar{display:none}
+.chip{
+  flex:0 0 auto;padding:6px 12px;border:1px solid var(--line);border-radius:999px;
+  background:var(--surface);color:var(--muted);font-family:inherit;font-size:13px;
+  font-weight:500;cursor:pointer;white-space:nowrap;
+}
+.chip.on{background:var(--teal-soft);border-color:var(--teal);color:var(--teal);font-weight:600}
+
+/* ── 목록 ─────────────────────────────── */
+.daylabel{
+  font-family:var(--mono);font-size:12px;font-weight:600;color:var(--faint);
+  letter-spacing:.4px;margin:16px 2px 7px;text-transform:uppercase;
+}
+.rec{
+  background:var(--surface);border:1px solid var(--line-soft);border-radius:12px;
+  padding:12px 13px;margin-bottom:8px;box-shadow:var(--shadow);cursor:pointer;
+  width:100%;text-align:left;font-family:inherit;color:var(--text);display:block;
+}
+.rec:active{transform:scale(.995)}
+.rechead{display:flex;align-items:center;gap:7px;margin-bottom:4px}
+.rec .nm{font-size:15.5px;font-weight:600;letter-spacing:-.2px}
+.rec .who{font-size:12px;color:var(--faint)}
+.rec .sp{flex:1}
+.rec .tm{font-family:var(--mono);font-size:12px;color:var(--faint);white-space:nowrap}
+.tag{
+  font-size:11.5px;font-weight:600;padding:2px 7px;border-radius:6px;
+  background:var(--surface-2);color:var(--muted);white-space:nowrap;
+}
+.tag.cls{background:var(--brass-soft);color:var(--brass)}
+.dir{font-family:var(--mono);font-size:11.5px;font-weight:600;color:var(--faint)}
+.dir.in{color:var(--teal)}
+.star{color:var(--brass);font-size:13px}
+.memo{font-size:14px;color:var(--muted);white-space:pre-wrap;word-break:break-word}
+.memo.clip{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.todoline{
+  margin-top:7px;padding:6px 9px;border-radius:8px;background:var(--brass-soft);
+  color:var(--brass);font-size:12.5px;font-weight:500;display:flex;gap:6px;align-items:baseline;
+}
+.todoline.over{background:var(--red-soft);color:var(--red)}
+.todoline.done{background:var(--teal-soft);color:var(--teal)}
+.todoline .due{font-family:var(--mono);font-size:11.5px;white-space:nowrap}
+
+.empty{
+  text-align:center;color:var(--faint);font-size:14px;padding:46px 20px;line-height:1.8;
+}
+
+/* ── 사람 목록 ────────────────────────── */
+.person{
+  background:var(--surface);border:1px solid var(--line-soft);border-radius:12px;
+  padding:12px 13px;margin-bottom:8px;box-shadow:var(--shadow);cursor:pointer;
+  width:100%;text-align:left;font-family:inherit;color:var(--text);
+  display:flex;align-items:center;gap:9px;
+}
+.person .nm{font-size:15.5px;font-weight:600}
+.person .meta{font-size:12.5px;color:var(--faint);margin-top:2px}
+.person .n{
+  font-family:var(--mono);font-size:12px;font-weight:600;color:var(--muted);
+  background:var(--surface-2);border-radius:8px;padding:3px 9px;white-space:nowrap;
+}
+
+/* ── 새 기록 단추 ─────────────────────── */
+.fab{
+  position:fixed;left:50%;transform:translateX(-50%);
+  bottom:calc(20px + env(safe-area-inset-bottom));
+  background:var(--text);color:var(--bg);border:0;border-radius:999px;
+  padding:14px 26px;font-family:inherit;font-size:15.5px;font-weight:600;
+  box-shadow:0 6px 20px -6px rgba(0,0,0,.45);cursor:pointer;z-index:40;
+}
+
+/* ── 아래에서 올라오는 창 ─────────────── */
+.sheet{
+  position:fixed;inset:0;background:rgba(10,12,16,.45);z-index:60;
+  display:none;align-items:flex-end;justify-content:center;
+}
+.sheet.open{display:flex}
+.panel{
+  background:var(--bg);width:100%;max-width:660px;max-height:92vh;overflow-y:auto;
+  border-radius:18px 18px 0 0;padding:16px 15px calc(22px + env(safe-area-inset-bottom));
+  -webkit-overflow-scrolling:touch;
+}
+.panel h2{font-size:17px;margin:2px 0 14px;font-weight:700}
+.row{margin-bottom:12px}
+.row label{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:5px}
+.row input, .row select, .row textarea{
+  width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;
+  background:var(--surface);color:var(--text);font-family:inherit;font-size:15.5px;
+}
+.row textarea{min-height:110px;resize:vertical;line-height:1.6}
+.row input:focus, .row select:focus, .row textarea:focus{outline:2px solid var(--teal);outline-offset:-1px}
+.two{display:flex;gap:9px}
+.two > *{flex:1;min-width:0}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{
+  flex:1 0 auto;padding:9px 12px;border:1px solid var(--line);background:var(--surface);
+  border-radius:9px;font-family:inherit;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;
+}
+.seg button.on{background:var(--teal-soft);border-color:var(--teal);color:var(--teal)}
+.check{display:flex;align-items:center;gap:9px;font-size:14.5px;font-weight:500;cursor:pointer;padding:4px 0}
+.check input{width:20px;height:20px;flex:0 0 auto;accent-color:var(--teal)}
+.acts{display:flex;gap:9px;margin-top:16px}
+.btn{
+  flex:1;padding:14px;border:0;border-radius:11px;font-family:inherit;font-size:15.5px;
+  font-weight:600;cursor:pointer;background:var(--text);color:var(--bg);
+}
+.btn.ghost{background:var(--surface);color:var(--muted);border:1px solid var(--line)}
+.btn.danger{background:var(--red-soft);color:var(--red);border:1px solid transparent}
+.hint{font-size:12.5px;color:var(--faint);line-height:1.65;margin-top:-4px;margin-bottom:12px}
+.mic{
+  background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:7px 12px;
+  font-family:inherit;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;margin-top:7px;
+}
+.mic.rec{background:var(--red-soft);color:var(--red);border-color:transparent}
+
+/* ── 자세히 보기 ──────────────────────── */
+.dhead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.dhead .nm{font-size:19px;font-weight:700}
+.dmemo{
+  background:var(--surface);border:1px solid var(--line-soft);border-radius:12px;padding:13px;
+  font-size:15px;white-space:pre-wrap;word-break:break-word;line-height:1.7;margin-bottom:12px;
+}
+.dmeta{font-family:var(--mono);font-size:12.5px;color:var(--faint);margin-bottom:12px}
+.tline{
+  background:var(--surface);border:1px solid var(--line-soft);border-radius:12px;
+  padding:11px 13px;margin-bottom:8px;
+}
+.tline .t{font-family:var(--mono);font-size:12px;color:var(--faint);margin-bottom:3px}
+
+/* ── 통화 전문 ───────────────────────── */
+.doc{font-family:var(--mono);font-size:11px;color:var(--faint);white-space:nowrap}
+details.full{
+  background:var(--surface);border:1px solid var(--line-soft);border-radius:12px;
+  padding:0;margin-bottom:12px;overflow:hidden;
+}
+details.full > summary{
+  padding:12px 13px;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;
+  list-style:none;
+}
+details.full > summary::-webkit-details-marker{display:none}
+details.full > summary::after{content:' ▾';color:var(--faint)}
+details.full[open] > summary::after{content:' ▴'}
+details.full .body{
+  padding:0 13px 13px;font-size:14px;line-height:1.75;white-space:pre-wrap;word-break:break-word;
+  border-top:1px solid var(--line-soft);padding-top:12px;color:var(--text);
+}
+.minirow{display:flex;gap:7px;flex-wrap:wrap;margin-top:7px}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="top">
+    <h1>통화기록</h1>
+    <span class="cnt" id="cnt"></span>
+    <span class="sp"></span>
+    <button class="iconbtn" id="btn-help">도움말</button>
+    <button class="iconbtn" id="btn-backup">백업</button>
+  </div>
+
+  <div class="tabs">
+    <button class="tab on" data-tab="log">기록</button>
+    <button class="tab" data-tab="todo">후속조치<span class="dot" id="todo-dot" style="display:none">0</span></button>
+    <button class="tab" data-tab="people">사람별</button>
+  </div>
+
+  <input class="search" id="q" type="search" placeholder="이름·반·내용으로 찾기" autocomplete="off">
+  <div class="chips" id="chips"></div>
+
+  <div id="list"></div>
+</div>
+
+<button class="fab" id="fab">＋ 통화 기록하기</button>
+
+<!-- 기록 쓰기 / 고치기 -->
+<div class="sheet" id="sheet-form">
+  <div class="panel">
+    <h2 id="form-title">통화 기록</h2>
+
+    <div class="row">
+      <label for="f-name">누구와 통화했나요</label>
+      <input id="f-name" list="names" placeholder="학생 이름 (예: 김지우)" autocomplete="off" enterkeyhint="done">
+      <datalist id="names"></datalist>
+    </div>
+
+    <div class="row two">
+      <div>
+        <label for="f-role">상대</label>
+        <select id="f-role">
+          <option>학부모</option><option>학생</option><option>강사</option><option>기타</option>
+        </select>
+      </div>
+      <div>
+        <label for="f-cls">반</label>
+        <input id="f-cls" list="clslist" placeholder="자동으로 채워집니다" autocomplete="off">
+        <datalist id="clslist"></datalist>
+      </div>
+    </div>
+
+    <div class="row two">
+      <div>
+        <label for="f-phone">전화번호 <span style="font-weight:400">(선택)</span></label>
+        <input id="f-phone" type="tel" placeholder="010-0000-0000" autocomplete="off">
+      </div>
+      <div>
+        <label for="f-at">통화 일시</label>
+        <input id="f-at" type="datetime-local">
+      </div>
+    </div>
+
+    <div class="row">
+      <label>주고받음</label>
+      <div class="seg" id="seg-dir">
+        <button type="button" data-v="in">받은 전화</button>
+        <button type="button" data-v="out">건 전화</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <label>무슨 일로</label>
+      <div class="seg" id="seg-tag"></div>
+    </div>
+
+    <div class="row">
+      <label for="f-memo">요약 — 나중에 이것만 봐도 알게</label>
+      <textarea id="f-memo" placeholder="나눈 이야기와 약속한 것을 한두 줄로."></textarea>
+      <div class="minirow">
+        <button class="mic" id="sum" type="button" style="margin-top:0">✎ 전문에서 핵심 문장 뽑기</button>
+        <button class="mic" id="mic" type="button" style="display:none;margin-top:0">🎙 말로 받아쓰기</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <label for="f-text">통화 전문 <span style="font-weight:400">(전화앱이 만들어 준 텍스트를 붙여넣으세요)</span></label>
+      <div class="minirow" style="margin-top:0;margin-bottom:7px">
+        <button class="mic" id="paste" type="button" style="margin-top:0">📋 붙여넣기</button>
+        <button class="mic" id="clear-text" type="button" style="margin-top:0">비우기</button>
+      </div>
+      <textarea id="f-text" placeholder="전화 › 최근기록 › 통화 선택 › 변환된 텍스트 › 복사 → 여기에 붙여넣기" style="min-height:90px"></textarea>
+    </div>
+
+    <div class="row">
+      <label class="check"><input type="checkbox" id="f-star"> 중요 표시</label>
+      <label class="check"><input type="checkbox" id="f-todo"> 다시 연락하거나 처리할 일이 있음</label>
+    </div>
+
+    <div id="todo-fields" style="display:none">
+      <div class="row">
+        <label for="f-todotext">할 일</label>
+        <input id="f-todotext" placeholder="예: 보강 일정 확정해서 다시 연락" autocomplete="off">
+      </div>
+      <div class="row">
+        <label for="f-due">언제까지</label>
+        <input id="f-due" type="date">
+      </div>
+    </div>
+
+    <div class="acts">
+      <button class="btn ghost" id="form-cancel" type="button">닫기</button>
+      <button class="btn" id="form-save" type="button">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 하나 자세히 보기 -->
+<div class="sheet" id="sheet-detail">
+  <div class="panel" id="detail-body"></div>
+</div>
+
+<!-- 사람별 이력 -->
+<div class="sheet" id="sheet-person">
+  <div class="panel" id="person-body"></div>
+</div>
+
+<!-- 도움말 -->
+<div class="sheet" id="sheet-help">
+  <div class="panel">
+    <h2>통화 내용을 여기로 가져오는 법</h2>
+
+    <div class="daylabel">1. 전화앱에서 자동 텍스트 변환 켜기 (한 번만)</div>
+    <div class="dmemo">전화 › 오른쪽 위 ⋮ › 설정 › 통화 녹음 › 텍스트 변환 어시스트
+› '통화 녹음 및 다이렉트 음성 메시지를 텍스트로 자동 변환' 켜기
+› 텍스트 변환 언어를 한국어로</div>
+
+    <div class="daylabel">2. 통화가 끝나면</div>
+    <div class="dmemo">통화 중에 녹음 단추를 눌러 두었다면,
+전화 › 최근기록 › 그 통화 선택 › 변환된 텍스트(또는 요약) › 복사
+
+이 앱에서 ＋ 통화 기록하기 › 통화 전문 칸에 📋 붙여넣기
+› ✎ 핵심 문장 뽑기 를 누르면 요약 칸이 채워집니다. 손보고 저장하세요.</div>
+
+    <div class="daylabel">3. 더 빠르게 — 공유로 바로 보내기</div>
+    <div class="dmemo">이 화면을 홈 화면에 추가해 두면(브라우저 메뉴 › 홈 화면에 추가),
+전화앱에서 텍스트를 '공유'할 때 목록에 통화기록이 나타납니다.
+거기로 보내면 전문이 채워진 채로 이 앱이 열립니다.</div>
+
+    <div class="daylabel">알아두실 것</div>
+    <div class="dmemo">· 웹앱은 폰의 통화목록을 스스로 읽지 못합니다. 위처럼 건네주셔야 합니다.
+· 적어둔 기록은 이 기계(이 브라우저) 안에만 있고 서버로 가지 않습니다.
+· 학부모와 나눈 이야기가 담기니, 백업 파일은 아무 데나 두지 마세요.</div>
+
+    <div class="acts"><button class="btn" data-act="close" type="button">닫기</button></div>
+  </div>
+</div>
+
+<!-- 백업·복원 -->
+<div class="sheet" id="sheet-backup">
+  <div class="panel">
+    <h2>백업과 복원</h2>
+    <div class="hint">
+      기록은 이 기계(이 브라우저) 안에만 저장됩니다. 서버로 보내지 않으니 밖으로 새어 나갈 걱정은 없지만,
+      폰을 바꾸거나 브라우저 자료를 지우면 함께 사라집니다. 가끔 파일로 내보내 두세요.
+    </div>
+    <div class="acts" style="margin-top:0">
+      <button class="btn ghost" id="bk-export" type="button">파일로 내보내기</button>
+      <button class="btn ghost" id="bk-import" type="button">파일에서 불러오기</button>
+    </div>
+    <div class="acts">
+      <button class="btn ghost" id="bk-copy" type="button">지금 보이는 목록 글로 복사</button>
+    </div>
+    <input type="file" id="bk-file" accept="application/json,.json" style="display:none">
+    <div class="acts" style="margin-top:18px">
+      <button class="btn" id="bk-close" type="button">닫기</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ═══════════════════════════════════════════════════
+     통화기록 — 학원으로 오가는 전화를 적어 두고 찾아보는 곳.
+
+     * 기록은 이 기계 안(브라우저 저장칸)에만 있습니다. 서버로 가지 않습니다.
+     * 폰의 통화목록을 자동으로 읽어올 수는 없습니다(브라우저에 그런 권한이 없습니다).
+       그래서 "통화 끝나고 몇 초 만에 적기"를 가장 빠르게 만들어 두었습니다.
+     ═══════════════════════════════════════════════════ */
+
+  var KEY = 'hyojin_calls_v1';
+  var TAGS = ['상담', '결석', '수납', '보강', '문의', '기타'];
+
+  var DB = [];        // 기록 전부
+  var CLASSOF = {};   // 학생이름 -> 반 이름 (classes.json 에서 읽어 둡니다)
+  var CLSNAMES = [];  // 반 이름 목록
+  var TAB = 'log';
+  var Q = '';
+  var FILTER = 'all';
+  var EDITING = null; // 고치는 중인 기록의 id
+  var FORM = { dir: 'in', tag: '상담' };
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function uid() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  }
+
+  /* ── 저장칸 ──────────────────────────────────────── */
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      DB = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(DB)) DB = [];
+    } catch (e) { DB = []; }
+  }
+  function save() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(DB));
+    } catch (e) {
+      alert('저장하지 못했습니다. 브라우저 저장공간이 꽉 찼을 수 있습니다.\n백업 → 파일로 내보내기 로 먼저 보관해 주세요.');
+    }
+  }
+
+  /* ── 날짜 다루기 ─────────────────────────────────── */
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function localNow() {
+    var d = new Date();
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+         + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+  function todayYmd() { return localNow().slice(0, 10); }
+  var WD = ['일', '월', '화', '수', '목', '금', '토'];
+
+  function dayLabel(ymd) {
+    var t = todayYmd();
+    if (ymd === t) return '오늘';
+    var d = new Date(t + 'T00:00');
+    d.setDate(d.getDate() - 1);
+    var y = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+    if (ymd === y) return '어제';
+    var p = ymd.split('-');
+    var w = new Date(ymd + 'T00:00').getDay();
+    return p[0] + '.' + p[1] + '.' + p[2] + ' (' + WD[w] + ')';
+  }
+  function hhmm(at) { return (at || '').slice(11, 16); }
+  function shortDate(ymd) {
+    if (!ymd) return '';
+    var p = ymd.split('-');
+    return p[1] + '/' + p[2];
+  }
+  function daysFromToday(ymd) {
+    if (!ymd) return 0;
+    return Math.round((new Date(ymd + 'T00:00') - new Date(todayYmd() + 'T00:00')) / 86400000);
+  }
+
+  /* ── 반 명단 (자동 채우기용) ─────────────────────── */
+  function loadClasses() {
+    fetch('classes.json', { cache: 'no-cache' }).then(function (r) {
+      return r.ok ? r.json() : null;
+    }).then(function (j) {
+      if (!j || !j.classes) return;
+      Object.keys(j.classes).forEach(function (ab) {
+        CLSNAMES.push(ab);
+        (j.classes[ab].students || []).forEach(function (n) {
+          var key = String(n).replace(/\(.*\)$/, '').trim();
+          if (key && !CLASSOF[key]) CLASSOF[key] = ab;
+        });
+      });
+      fillDatalists();
+      /* 명단이 늦게 도착했다면, 열려 있는 쓰기 창을 한 번 더 맞춰 봅니다 */
+      if ($('sheet-form').classList.contains('open')) {
+        if (!$('f-name').value.trim() && $('f-text').value.trim()) {
+          var g = guessName($('f-text').value);
+          if (g) { $('f-name').value = g; }
+        }
+        autoClass();
+      }
+    }).catch(function () {});
+  }
+  function fillDatalists() {
+    var seen = {}, out = [];
+    Object.keys(CLASSOF).forEach(function (n) { if (!seen[n]) { seen[n] = 1; out.push(n); } });
+    DB.forEach(function (r) { if (r.name && !seen[r.name]) { seen[r.name] = 1; out.push(r.name); } });
+    out.sort();
+    $('names').innerHTML = out.map(function (n) {
+      var c = CLASSOF[n];
+      return '<option value="' + esc(n) + '">' + (c ? esc(c) : '') + '</option>';
+    }).join('');
+    var cs = CLSNAMES.slice();
+    DB.forEach(function (r) { if (r.cls && cs.indexOf(r.cls) < 0) cs.push(r.cls); });
+    cs.sort();
+    $('clslist').innerHTML = cs.map(function (c) {
+      return '<option value="' + esc(c) + '"></option>';
+    }).join('');
+  }
+
+  /* ── 거르개(필터) 단추들 ─────────────────────────── */
+  function renderChips() {
+    var defs = [['all', '전체'], ['todo', '후속 필요'], ['star', '중요']];
+    TAGS.forEach(function (t) { defs.push(['tag:' + t, t]); });
+    $('chips').innerHTML = defs.map(function (d) {
+      return '<button class="chip' + (FILTER === d[0] ? ' on' : '') + '" data-f="' + esc(d[0]) + '">'
+           + esc(d[1]) + '</button>';
+    }).join('');
+  }
+
+  /* ── 찾기·거르기 ─────────────────────────────────── */
+  function matches(r) {
+    if (FILTER === 'todo' && !(r.todo && r.todo.on && !r.todo.done)) return false;
+    if (FILTER === 'star' && !r.star) return false;
+    if (FILTER.indexOf('tag:') === 0 && r.tag !== FILTER.slice(4)) return false;
+    if (!Q) return true;
+    var hay = [r.name, r.cls, r.memo, r.text, r.tag, r.role, r.phone, r.todo && r.todo.text]
+      .join(' ').toLowerCase();
+    return hay.indexOf(Q.toLowerCase()) >= 0;
+  }
+  function visible() {
+    return DB.filter(matches).sort(byTimeDesc);
+  }
+  /* 늦게 통화한 것이 위로. 같은 분(分)이면 나중에 적은 것이 위로. */
+  function byTimeDesc(a, b) {
+    if (a.at !== b.at) return a.at < b.at ? 1 : -1;
+    var x = a.createdAt || '', y = b.createdAt || '';
+    return x < y ? 1 : x > y ? -1 : 0;
+  }
+  function openTodos() {
+    return DB.filter(function (r) { return r.todo && r.todo.on && !r.todo.done; })
+      .sort(function (a, b) {
+        var x = a.todo.due || '9999-99-99', y = b.todo.due || '9999-99-99';
+        return x < y ? -1 : x > y ? 1 : 0;
+      });
+  }
+
+  /* ── 한 건 그리기 ────────────────────────────────── */
+  function recHtml(r, opt) {
+    opt = opt || {};
+    var h = '<button class="rec" data-id="' + esc(r.id) + '">';
+    h += '<div class="rechead">';
+    if (!opt.noName) h += '<span class="nm">' + esc(r.name || '이름 없음') + '</span>';
+    if (r.role && r.role !== '학부모') h += '<span class="who">' + esc(r.role) + '</span>';
+    if (r.cls && !opt.noCls) h += '<span class="tag cls">' + esc(r.cls) + '</span>';
+    if (r.tag) h += '<span class="tag">' + esc(r.tag) + '</span>';
+    if (r.star) h += '<span class="star">★</span>';
+    if (r.text) h += '<span class="doc" title="통화 전문 있음">📄</span>';
+    h += '<span class="sp"></span>';
+    h += '<span class="dir' + (r.dir === 'in' ? ' in' : '') + '">' + (r.dir === 'in' ? '↓받음' : '↑걸음') + '</span>';
+    h += '<span class="tm">' + esc(opt.withDate ? (shortDate(r.at.slice(0, 10)) + ' ' + hhmm(r.at)) : hhmm(r.at)) + '</span>';
+    h += '</div>';
+    if (r.memo) h += '<div class="memo clip">' + esc(r.memo) + '</div>';
+    h += todoHtml(r);
+    h += '</button>';
+    return h;
+  }
+  function todoHtml(r) {
+    if (!r.todo || !r.todo.on) return '';
+    var cls = 'todoline', mark = '□';
+    if (r.todo.done) { cls += ' done'; mark = '☑'; }
+    else if (r.todo.due && daysFromToday(r.todo.due) < 0) cls += ' over';
+    var due = '';
+    if (r.todo.due && !r.todo.done) {
+      var d = daysFromToday(r.todo.due);
+      due = d === 0 ? '오늘까지' : d < 0 ? (-d) + '일 지남' : shortDate(r.todo.due) + '까지';
+    } else if (r.todo.due) {
+      due = shortDate(r.todo.due);
+    }
+    return '<div class="' + cls + '"><span>' + mark + '</span>'
+         + '<span style="flex:1">' + esc(r.todo.text || '후속 조치') + '</span>'
+         + (due ? '<span class="due">' + esc(due) + '</span>' : '') + '</div>';
+  }
+
+  /* ── 화면 그리기 ─────────────────────────────────── */
+  function render() {
+    var n = openTodos().length;
+    $('todo-dot').style.display = n ? '' : 'none';
+    $('todo-dot').textContent = n;
+    $('cnt').textContent = DB.length ? DB.length + '건' : '';
+
+    if (TAB === 'log') renderLog();
+    else if (TAB === 'todo') renderTodo();
+    else renderPeople();
+  }
+
+  function renderLog() {
+    var rs = visible();
+    if (!rs.length) {
+      $('list').innerHTML = '<div class="empty">' + (DB.length
+        ? '찾는 기록이 없습니다.'
+        : '아직 적어둔 통화가 없습니다.<br>전화를 끊고 바로 아래 단추를 눌러 남겨 두세요.') + '</div>';
+      return;
+    }
+    var h = '', lastDay = '';
+    rs.forEach(function (r) {
+      var d = (r.at || '').slice(0, 10);
+      if (d !== lastDay) {
+        lastDay = d;
+        h += '<div class="daylabel">' + esc(dayLabel(d)) + '</div>';
+      }
+      h += recHtml(r);
+    });
+    $('list').innerHTML = h;
+  }
+
+  function renderTodo() {
+    var rs = openTodos().filter(matchesForTodo);
+    var done = DB.filter(function (r) { return r.todo && r.todo.on && r.todo.done; })
+      .sort(byTimeDesc).slice(0, 20);
+    var h = '';
+    if (!rs.length) {
+      h += '<div class="empty">처리할 일이 남아 있지 않습니다.</div>';
+    } else {
+      h += '<div class="daylabel">남은 일 ' + rs.length + '건</div>';
+      rs.forEach(function (r) { h += recHtml(r, { withDate: true }); });
+    }
+    if (done.length) {
+      h += '<div class="daylabel">끝낸 일</div>';
+      done.forEach(function (r) { h += recHtml(r, { withDate: true }); });
+    }
+    $('list').innerHTML = h;
+  }
+  function matchesForTodo(r) {
+    if (!Q) return true;
+    var hay = [r.name, r.cls, r.memo, r.text, r.todo && r.todo.text].join(' ').toLowerCase();
+    return hay.indexOf(Q.toLowerCase()) >= 0;
+  }
+
+  function renderPeople() {
+    var map = {};
+    DB.forEach(function (r) {
+      var k = r.name || '이름 없음';
+      if (!map[k]) map[k] = { name: k, cls: r.cls || '', n: 0, last: '', open: 0 };
+      var p = map[k];
+      p.n++;
+      if (!p.cls && r.cls) p.cls = r.cls;
+      if (r.at > p.last) p.last = r.at;
+      if (r.todo && r.todo.on && !r.todo.done) p.open++;
+    });
+    var list = Object.keys(map).map(function (k) { return map[k]; })
+      .filter(function (p) {
+        if (!Q) return true;
+        return (p.name + ' ' + p.cls).toLowerCase().indexOf(Q.toLowerCase()) >= 0;
+      })
+      .sort(function (a, b) { return a.last < b.last ? 1 : a.last > b.last ? -1 : 0; });
+
+    if (!list.length) {
+      $('list').innerHTML = '<div class="empty">아직 기록이 없습니다.</div>';
+      return;
+    }
+    $('list').innerHTML = '<div class="daylabel">최근 통화한 순서</div>' + list.map(function (p) {
+      return '<button class="person" data-name="' + esc(p.name) + '">'
+        + '<div style="flex:1;min-width:0">'
+        + '<div class="nm">' + esc(p.name)
+        + (p.cls ? ' <span class="tag cls">' + esc(p.cls) + '</span>' : '')
+        + (p.open ? ' <span class="tag" style="background:var(--red-soft);color:var(--red)">후속 ' + p.open + '</span>' : '')
+        + '</div>'
+        + '<div class="meta">마지막 통화 ' + esc(dayLabel(p.last.slice(0, 10))) + ' ' + esc(hhmm(p.last)) + '</div>'
+        + '</div>'
+        + '<span class="n">' + p.n + '건</span>'
+        + '</button>';
+    }).join('');
+  }
+
+  /* ── 창 열고 닫기 ────────────────────────────────── */
+  function openSheet(id) {
+    $(id).classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeSheet(id) {
+    $(id).classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  function closeAll() {
+    ['sheet-form', 'sheet-detail', 'sheet-person', 'sheet-backup', 'sheet-help'].forEach(function (s) {
+      $(s).classList.remove('open');
+    });
+    document.body.style.overflow = '';
+  }
+
+  /* ── 쓰기 창 ─────────────────────────────────────── */
+  function segRender() {
+    [].forEach.call($('seg-dir').children, function (b) {
+      b.classList.toggle('on', b.getAttribute('data-v') === FORM.dir);
+    });
+    [].forEach.call($('seg-tag').children, function (b) {
+      b.classList.toggle('on', b.getAttribute('data-v') === FORM.tag);
+    });
+  }
+  function openForm(rec) {
+    EDITING = rec ? rec.id : null;
+    $('form-title').textContent = rec ? '기록 고치기' : '통화 기록';
+    $('f-name').value = rec ? (rec.name || '') : '';
+    $('f-role').value = rec ? (rec.role || '학부모') : '학부모';
+    $('f-cls').value = rec ? (rec.cls || '') : '';
+    $('f-phone').value = rec ? (rec.phone || '') : '';
+    $('f-at').value = rec ? rec.at : localNow();
+    $('f-memo').value = rec ? (rec.memo || '') : '';
+    $('f-text').value = rec ? (rec.text || '') : '';
+    $('f-star').checked = !!(rec && rec.star);
+    var t = (rec && rec.todo) || {};
+    $('f-todo').checked = !!t.on;
+    $('f-todotext').value = t.text || '';
+    $('f-due').value = t.due || '';
+    $('todo-fields').style.display = t.on ? '' : 'none';
+    FORM.dir = rec ? (rec.dir || 'in') : 'in';
+    FORM.tag = rec ? (rec.tag || '상담') : '상담';
+    segRender();
+    openSheet('sheet-form');
+    if (!rec) setTimeout(function () { $('f-name').focus(); }, 120);
+  }
+  function saveForm() {
+    var name = $('f-name').value.trim();
+    var memo = $('f-memo').value.trim();
+    var full = $('f-text').value.trim();
+    if (!name && !memo && !full) { alert('이름이나 통화 내용 중 하나는 적어 주세요.'); return; }
+    var todoOn = $('f-todo').checked;
+    var rec = {
+      id: EDITING || uid(),
+      name: name,
+      role: $('f-role').value,
+      cls: $('f-cls').value.trim(),
+      phone: $('f-phone').value.trim(),
+      at: $('f-at').value || localNow(),
+      dir: FORM.dir,
+      tag: FORM.tag,
+      memo: memo,
+      text: full,
+      star: $('f-star').checked,
+      todo: {
+        on: todoOn,
+        text: todoOn ? $('f-todotext').value.trim() : '',
+        due: todoOn ? $('f-due').value : '',
+        done: false
+      }
+    };
+    if (EDITING) {
+      var i = DB.findIndex(function (r) { return r.id === EDITING; });
+      if (i >= 0) {
+        rec.todo.done = todoOn ? !!(DB[i].todo && DB[i].todo.done) : false;
+        rec.createdAt = DB[i].createdAt;
+        DB[i] = rec;
+      }
+    } else {
+      rec.createdAt = new Date().toISOString();
+      DB.push(rec);
+    }
+    save(); fillDatalists(); closeAll(); render();
+  }
+
+  /* ═══ 전화앱이 만들어 준 통화 텍스트 다루기 ═══════════
+     갤럭시 전화앱의 '텍스트 변환 어시스트'가 만든 글을 그대로 받아,
+     말한 사람 표시와 시각을 걷어내고 중요해 보이는 문장만 골라 냅니다.
+     (인터넷에 보내지 않고 이 기계 안에서만 훑습니다) */
+
+  var KW = [
+    ['결석', 4], ['빠지', 3], ['보강', 4], ['환불', 4], ['수강료', 4], ['납부', 3], ['결제', 3],
+    ['등록', 3], ['상담', 2], ['시험', 3], ['내신', 3], ['숙제', 2], ['교재', 2], ['영상', 2],
+    ['취소', 4], ['변경', 4], ['연기', 3], ['요청', 3], ['부탁', 3], ['문의', 2], ['일정', 3],
+    ['지각', 2], ['조퇴', 2], ['연락', 2], ['방학', 2], ['특강', 2], ['반', 1], ['선생님', 1]
+  ];
+  var DATERE = /(\d{1,2}\s*월\s*\d{1,2}\s*일|\d{1,2}\s*일|\d{1,2}\s*시(\s*\d{1,2}\s*분)?|오늘|내일|모레|이번\s*주|다음\s*주|주말|[월화수목금토일]요일)/;
+
+  /* '나 :', '상대방:', '[00:12]' 같은 앞머리를 걷어냅니다 */
+  function cleanLine(t) {
+    return String(t)
+      .replace(/^\s*[\[(]?\d{1,2}:\d{2}(:\d{2})?[\])]?\s*/, '')
+      .replace(/^\s*(나|저|본인|상대|상대방|발신자|수신자|통화자\s*\d*|화자\s*\d*|참석자\s*\d*)\s*[:：]\s*/, '')
+      .trim();
+  }
+  function splitSentences(text) {
+    var out = [];
+    String(text).replace(/\r/g, '').split('\n').forEach(function (line) {
+      var c = cleanLine(line);
+      if (!c) return;
+      c.split(/(?:[.!?。]|다\.)\s+/).forEach(function (piece) {
+        var t = piece.trim();
+        if (t) out.push(t);
+      });
+    });
+    return out;
+  }
+  function summarize(text) {
+    var ss = splitSentences(text);
+    if (!ss.length) return '';
+    var scored = ss.map(function (t, i) {
+      var sc = 0;
+      KW.forEach(function (k) { if (t.indexOf(k[0]) >= 0) sc += k[1]; });
+      if (DATERE.test(t)) sc += 3;
+      if (t.length < 6) sc -= 3;
+      if (t.length > 90) sc -= 1;
+      return { t: t, i: i, sc: sc };
+    }).filter(function (x) { return x.sc > 0; });
+
+    scored.sort(function (a, b) { return b.sc - a.sc || a.i - b.i; });
+    var pick = scored.slice(0, 5).sort(function (a, b) { return a.i - b.i; });
+    if (!pick.length) {
+      /* 걸리는 낱말이 없으면 긴 문장 세 개만 보여 줍니다 */
+      pick = ss.map(function (t, i) { return { t: t, i: i }; })
+        .sort(function (a, b) { return b.t.length - a.t.length; })
+        .slice(0, 3).sort(function (a, b) { return a.i - b.i; });
+    }
+    return pick.map(function (x) { return '· ' + x.t; }).join('\n');
+  }
+
+  /* 전문 안에 우리 학생 이름이 있으면 집어 옵니다 */
+  function guessName(text) {
+    var names = Object.keys(CLASSOF);
+    for (var i = 0; i < names.length; i++) {
+      if (names[i].length >= 2 && text.indexOf(names[i]) >= 0) return names[i];
+    }
+    return '';
+  }
+  function afterTextFilled() {
+    var t = $('f-text').value.trim();
+    if (!t) return;
+    if (!$('f-memo').value.trim()) $('f-memo').value = summarize(t);
+    if (!$('f-name').value.trim()) {
+      var g = guessName(t);
+      if (g) { $('f-name').value = g; autoClass(); }
+    }
+  }
+
+  /* 이름을 다 적으면 반을 대신 채워 둡니다 */
+  function autoClass() {
+    var n = $('f-name').value.trim().replace(/\(.*\)$/, '').trim();
+    if (!n) return;
+    if ($('f-cls').value.trim()) return;
+    if (CLASSOF[n]) $('f-cls').value = CLASSOF[n];
+  }
+
+  /* ── 하나 자세히 보기 ────────────────────────────── */
+  function byId(id) {
+    for (var i = 0; i < DB.length; i++) if (DB[i].id === id) return DB[i];
+    return null;
+  }
+  function openDetail(id) {
+    var r = byId(id);
+    if (!r) return;
+    var h = '<div class="dhead">';
+    h += '<span class="nm">' + esc(r.name || '이름 없음') + '</span>';
+    if (r.cls) h += '<span class="tag cls">' + esc(r.cls) + '</span>';
+    if (r.tag) h += '<span class="tag">' + esc(r.tag) + '</span>';
+    if (r.star) h += '<span class="star">★</span>';
+    h += '</div>';
+    h += '<div class="dmeta">' + esc(dayLabel(r.at.slice(0, 10)) + ' ' + hhmm(r.at))
+       + ' · ' + (r.dir === 'in' ? '받은 전화' : '건 전화')
+       + ' · ' + esc(r.role || '') + '</div>';
+    h += '<div class="dmemo">' + (r.memo ? esc(r.memo) : '<span style="color:var(--faint)">적어둔 요약이 없습니다.</span>') + '</div>';
+    if (r.text) {
+      h += '<details class="full"><summary>통화 전문 보기 (' + r.text.length + '자)</summary>'
+         + '<div class="body">' + esc(r.text) + '</div></details>'
+         + '<div class="acts" style="margin-top:0"><button class="btn ghost" data-act="copytext" data-id="'
+         + esc(r.id) + '">전문 복사</button></div>';
+    }
+    if (r.todo && r.todo.on) {
+      h += todoHtml(r);
+      h += '<div class="acts"><button class="btn ghost" data-act="toggle" data-id="' + esc(r.id) + '">'
+         + (r.todo.done ? '아직 안 끝났음으로 되돌리기' : '이 일 끝냄으로 표시') + '</button></div>';
+    }
+    h += '<div class="acts">';
+    if (r.phone) h += '<a class="btn ghost" style="text-align:center;text-decoration:none;line-height:1.4" href="tel:' + esc(r.phone.replace(/[^0-9+]/g, '')) + '">전화 걸기</a>';
+    h += '<button class="btn ghost" data-act="person" data-name="' + esc(r.name || '') + '">이 사람 이력</button>';
+    h += '</div>';
+    h += '<div class="acts">';
+    h += '<button class="btn ghost" data-act="edit" data-id="' + esc(r.id) + '">고치기</button>';
+    h += '<button class="btn danger" data-act="del" data-id="' + esc(r.id) + '">지우기</button>';
+    h += '</div>';
+    h += '<div class="acts"><button class="btn" data-act="close">닫기</button></div>';
+    $('detail-body').innerHTML = h;
+    openSheet('sheet-detail');
+  }
+
+  /* ── 사람별 이력 ─────────────────────────────────── */
+  function openPerson(name) {
+    var rs = DB.filter(function (r) { return (r.name || '이름 없음') === name; })
+      .sort(byTimeDesc);
+    var cls = '', phone = '';
+    rs.forEach(function (r) { if (!cls && r.cls) cls = r.cls; if (!phone && r.phone) phone = r.phone; });
+    var h = '<div class="dhead"><span class="nm">' + esc(name) + '</span>';
+    if (cls) h += '<span class="tag cls">' + esc(cls) + '</span>';
+    h += '<span class="tag">' + rs.length + '건</span></div>';
+    if (phone) {
+      h += '<div class="acts" style="margin-top:0"><a class="btn ghost" style="text-align:center;text-decoration:none;line-height:1.4" href="tel:'
+         + esc(phone.replace(/[^0-9+]/g, '')) + '">' + esc(phone) + ' 로 전화</a></div>';
+    }
+    h += '<div class="daylabel">통화 이력</div>';
+    rs.forEach(function (r) {
+      h += '<div class="tline">';
+      h += '<div class="t">' + esc(dayLabel(r.at.slice(0, 10)) + ' ' + hhmm(r.at))
+         + ' · ' + (r.dir === 'in' ? '받음' : '걸음')
+         + (r.tag ? ' · ' + esc(r.tag) : '') + '</div>';
+      if (r.memo) h += '<div class="memo">' + esc(r.memo) + '</div>';
+      h += todoHtml(r);
+      h += '</div>';
+    });
+    h += '<div class="acts"><button class="btn" data-act="close">닫기</button></div>';
+    $('person-body').innerHTML = h;
+    openSheet('sheet-person');
+  }
+
+  /* ── 백업 ────────────────────────────────────────── */
+  function exportFile() {
+    var blob = new Blob([JSON.stringify({ app: 'hyojin-calls', v: 1, saved: new Date().toISOString(), records: DB }, null, 2)],
+      { type: 'application/json' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '통화기록_' + todayYmd().replace(/-/g, '') + '.json';
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+  function importFile(file) {
+    var fr = new FileReader();
+    fr.onload = function () {
+      var j;
+      try { j = JSON.parse(fr.result); } catch (e) { alert('읽을 수 없는 파일입니다.'); return; }
+      var recs = (j && j.records) || (Array.isArray(j) ? j : null);
+      if (!recs) { alert('통화기록 백업 파일이 아닙니다.'); return; }
+      var have = {}, added = 0;
+      DB.forEach(function (r) { have[r.id] = 1; });
+      recs.forEach(function (r) {
+        if (!r || !r.id || have[r.id]) return;
+        if (!r.todo) r.todo = { on: false, text: '', due: '', done: false };
+        DB.push(r); have[r.id] = 1; added++;
+      });
+      save(); fillDatalists(); closeAll(); render();
+      alert(added + '건을 불러왔습니다.' + (recs.length - added ? ' (이미 있던 ' + (recs.length - added) + '건은 넘어갔습니다)' : ''));
+    };
+    fr.readAsText(file);
+  }
+  function copyText() {
+    var rs = TAB === 'todo' ? openTodos() : visible();
+    if (!rs.length) { alert('복사할 기록이 없습니다.'); return; }
+    var lines = rs.map(function (r) {
+      var s = '[' + r.at.slice(0, 10) + ' ' + hhmm(r.at) + '] '
+        + (r.name || '이름 없음') + (r.cls ? '(' + r.cls + ')' : '')
+        + ' · ' + (r.dir === 'in' ? '받음' : '걸음') + (r.tag ? ' · ' + r.tag : '');
+      if (r.memo) s += '\n  ' + r.memo.replace(/\n/g, '\n  ');
+      if (r.todo && r.todo.on && !r.todo.done) s += '\n  → 할 일: ' + (r.todo.text || '') + (r.todo.due ? ' (' + r.todo.due + '까지)' : '');
+      return s;
+    });
+    var text = '효진외국어학원 통화기록 (' + rs.length + '건)\n\n' + lines.join('\n\n');
+    copyPlain(text);
+  }
+  function copyPlain(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { alert('복사했습니다. 카톡·메모에 붙여넣으세요.'); },
+        function () { fallbackCopy(text); });
+    } else { fallbackCopy(text); }
+  }
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); alert('복사했습니다.'); } catch (e) { alert('복사하지 못했습니다.'); }
+    ta.remove();
+  }
+
+  /* ── 말로 받아쓰기 (지원하는 기계에서만) ─────────── */
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var recog = null;
+  function setupMic() {
+    if (!SR) return;
+    $('mic').style.display = '';
+    $('mic').addEventListener('click', function () {
+      if (recog) { recog.stop(); return; }
+      recog = new SR();
+      recog.lang = 'ko-KR';
+      recog.continuous = true;
+      recog.interimResults = false;
+      recog.onresult = function (e) {
+        var add = '';
+        for (var i = e.resultIndex; i < e.results.length; i++) {
+          if (e.results[i].isFinal) add += e.results[i][0].transcript;
+        }
+        if (!add) return;
+        var box = $('f-memo');
+        box.value = (box.value ? box.value.replace(/\s*$/, '') + ' ' : '') + add.trim();
+      };
+      recog.onend = function () { recog = null; $('mic').classList.remove('rec'); $('mic').textContent = '🎙 말로 받아쓰기'; };
+      recog.onerror = function () { recog = null; $('mic').classList.remove('rec'); $('mic').textContent = '🎙 말로 받아쓰기'; };
+      try {
+        recog.start();
+        $('mic').classList.add('rec');
+        $('mic').textContent = '■ 그만 듣기';
+      } catch (e) { recog = null; }
+    });
+  }
+
+  /* ── 눌렀을 때 ───────────────────────────────────── */
+  function bind() {
+    [].forEach.call(document.querySelectorAll('.tab'), function (b) {
+      b.addEventListener('click', function () {
+        TAB = b.getAttribute('data-tab');
+        [].forEach.call(document.querySelectorAll('.tab'), function (x) {
+          x.classList.toggle('on', x === b);
+        });
+        $('chips').style.display = (TAB === 'log') ? '' : 'none';
+        render();
+      });
+    });
+
+    $('chips').addEventListener('click', function (e) {
+      var b = e.target.closest('.chip');
+      if (!b) return;
+      FILTER = b.getAttribute('data-f');
+      renderChips(); render();
+    });
+
+    $('q').addEventListener('input', function () { Q = this.value.trim(); render(); });
+
+    $('list').addEventListener('click', function (e) {
+      var p = e.target.closest('.person');
+      if (p) { openPerson(p.getAttribute('data-name')); return; }
+      var r = e.target.closest('.rec');
+      if (r) openDetail(r.getAttribute('data-id'));
+    });
+
+    $('fab').addEventListener('click', function () { openForm(null); });
+    $('form-cancel').addEventListener('click', closeAll);
+    $('form-save').addEventListener('click', saveForm);
+    $('sum').addEventListener('click', function () {
+      var t = $('f-text').value.trim();
+      if (!t) { alert('먼저 통화 전문을 붙여넣어 주세요.'); return; }
+      $('f-memo').value = summarize(t);
+    });
+    $('clear-text').addEventListener('click', function () { $('f-text').value = ''; });
+    $('paste').addEventListener('click', function () {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        navigator.clipboard.readText().then(function (t) {
+          if (!t) { alert('복사해 둔 글이 없습니다.'); return; }
+          $('f-text').value = t.trim();
+          afterTextFilled();
+        }, function () {
+          alert('붙여넣기 권한이 없습니다. 아래 칸을 길게 눌러 직접 붙여넣어 주세요.');
+          $('f-text').focus();
+        });
+      } else {
+        alert('이 브라우저는 단추로 붙여넣기를 못 합니다. 아래 칸을 길게 눌러 붙여넣어 주세요.');
+        $('f-text').focus();
+      }
+    });
+    $('f-text').addEventListener('change', afterTextFilled);
+
+    $('f-name').addEventListener('change', autoClass);
+    $('f-name').addEventListener('blur', autoClass);
+    $('f-todo').addEventListener('change', function () {
+      $('todo-fields').style.display = this.checked ? '' : 'none';
+      if (this.checked && !$('f-due').value) $('f-due').value = todayYmd();
+    });
+
+    $('seg-tag').innerHTML = TAGS.map(function (t) {
+      return '<button type="button" data-v="' + esc(t) + '">' + esc(t) + '</button>';
+    }).join('');
+    $('seg-dir').addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      FORM.dir = b.getAttribute('data-v'); segRender();
+    });
+    $('seg-tag').addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      FORM.tag = b.getAttribute('data-v'); segRender();
+    });
+
+    /* 자세히 보기 / 사람별 창 안의 단추들 */
+    function sheetActions(e) {
+      var b = e.target.closest('[data-act]');
+      if (!b) {
+        if (e.target.classList.contains('sheet')) closeAll();
+        return;
+      }
+      var act = b.getAttribute('data-act');
+      var id = b.getAttribute('data-id');
+      if (act === 'close') { closeAll(); return; }
+      if (act === 'edit') { closeAll(); openForm(byId(id)); return; }
+      if (act === 'person') { closeAll(); openPerson(b.getAttribute('data-name') || '이름 없음'); return; }
+      if (act === 'del') {
+        if (!confirm('이 통화기록을 지웁니다. 되돌릴 수 없습니다.')) return;
+        DB = DB.filter(function (r) { return r.id !== id; });
+        save(); closeAll(); render(); return;
+      }
+      if (act === 'copytext') {
+        var rr = byId(id);
+        if (rr && rr.text) copyPlain(rr.text);
+        return;
+      }
+      if (act === 'toggle') {
+        var r = byId(id);
+        if (r && r.todo) { r.todo.done = !r.todo.done; save(); render(); openDetail(id); }
+      }
+    }
+    $('sheet-detail').addEventListener('click', sheetActions);
+    $('sheet-person').addEventListener('click', sheetActions);
+    $('sheet-form').addEventListener('click', function (e) {
+      if (e.target.classList.contains('sheet')) closeAll();
+    });
+
+    /* 백업 창 */
+    $('btn-help').addEventListener('click', function () { openSheet('sheet-help'); });
+    $('sheet-help').addEventListener('click', sheetActions);
+    $('btn-backup').addEventListener('click', function () { openSheet('sheet-backup'); });
+    $('bk-close').addEventListener('click', closeAll);
+    $('bk-export').addEventListener('click', exportFile);
+    $('bk-copy').addEventListener('click', copyText);
+    $('bk-import').addEventListener('click', function () { $('bk-file').click(); });
+    $('bk-file').addEventListener('change', function () {
+      if (this.files && this.files[0]) importFile(this.files[0]);
+      this.value = '';
+    });
+    $('sheet-backup').addEventListener('click', function (e) {
+      if (e.target.classList.contains('sheet')) closeAll();
+    });
+
+    /* 뒤로가기(안드로이드)로 창 닫기 */
+    window.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeAll();
+    });
+  }
+
+  /* 다른 앱에서 '공유'로 보낸 글을 받아 쓰기 창을 열어 둡니다
+     (홈 화면에 추가해 두었을 때 동작합니다) */
+  function takeShared() {
+    var qs;
+    try { qs = new URLSearchParams(location.search); } catch (e) { return; }
+    var t = [qs.get('title'), qs.get('text'), qs.get('url')]
+      .filter(function (x) { return x; }).join('\n').trim();
+    if (!t) return;
+    try { history.replaceState({}, '', location.pathname); } catch (e) {}
+    openForm(null);
+    $('f-text').value = t;
+    afterTextFilled();
+  }
+
+  /* ── 시작 ────────────────────────────────────────── */
+  load();
+  renderChips();
+  bind();
+  setupMic();
+  fillDatalists();
+  render();
+  loadClasses();
+  takeShared();
+})();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  });
+}
+</script>
+</body>
+</html>
