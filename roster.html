@@ -111,6 +111,8 @@ var API = window.HYOJIN_API;
   .cell.out{background:#efefef;cursor:default;color:#ccc}
   .cell.hol{background:#d9d9d9;cursor:default;color:#888}
   .cell.busy{opacity:.62}
+  /* 답이 안 와서 아직 못 보낸 칸 — 표시는 살려두고 점선으로만 알립니다 */
+  .cell.wait{box-shadow:inset 0 0 0 2px #e0a800}
   .legend{margin-top:10px;font-size:12.5px;color:#778;text-align:center}
   .legend i{font-style:normal;display:inline-block;width:13px;height:13px;border-radius:3px;
     vertical-align:-2px;margin:0 3px 0 10px;border:1px solid rgba(0,0,0,.08)}
@@ -604,22 +606,93 @@ var API = window.HYOJIN_API;
   var PKEY = 'hyojin_pending_marks_v1';
   var MAXAGE = 3 * 24 * 3600 * 1000;   // 3일 지난 건 버립니다
 
+  /* 수첩을 못 읽었을 때 **빈 수첩인 척하면 안 됩니다.**
+     빈 것으로 여기고 저장해 버리면 밀려 있던 출석이 통째로 날아갑니다.
+     그래서 못 읽으면 '못읽음' 표를 세워두고, 그 뒤로는 **덮어쓰기를 거부**합니다. */
+  var 수첩못읽음 = false;
   function pendAll() {
-    try { return JSON.parse(localStorage.getItem(PKEY) || '{}'); } catch (e) { return {}; }
+    try {
+      var raw = localStorage.getItem(PKEY);
+      if (raw === null) { 수첩못읽음 = false; return {}; }   // 아직 아무것도 없음 — 정상
+      var o = JSON.parse(raw);
+      // JSON 으로는 멀쩡해도 모양이 틀린 것(null·숫자·글자·목록)은 '못 읽음' 으로 봅니다
+      if (!o || typeof o !== 'object'
+          || Object.prototype.toString.call(o) === '[object Array]') {
+        수첩못읽음 = true; return {};
+      }
+      수첩못읽음 = false;                       // 제대로 읽었으니 표를 내립니다
+      return o;
+    } catch (e) {
+      수첩못읽음 = true;
+      return {};
+    }
   }
+  /** 저장에 성공하면 true, 못 했으면 false 를 돌려줍니다. */
   function pendPut(o) {
-    try { localStorage.setItem(PKEY, JSON.stringify(o)); } catch (e) {}
+    if (수첩못읽음) return false;               // 못 읽은 상태에서는 절대 덮어쓰지 않습니다
+    try { localStorage.setItem(PKEY, JSON.stringify(o)); }
+    catch (e) { return false; }                // 저장 공간이 꽉 찼을 때도 여기로 옵니다
     paintPend();
+    return true;
   }
+  /* 누를 때마다 1씩 오르는 번호표입니다.
+     'O 눌렀다 X 눌렀다 다시 O' 처럼 **값이 같아도 다른 누름**인 경우가 있어서,
+     값만 견주면 첫 번째 O 의 늦은 답이 세 번째 O 를 지워버립니다. 번호표면 안 헷갈립니다. */
+  /* 페이지를 열 때마다 달라지는 도장입니다.
+     번호표를 1,2,3… 으로만 하면 **새로고침하면 다시 1부터** 시작합니다.
+     그러면 지난번에 남은 1번과 이번에 새로 누른 1번이 같아 보여서,
+     지난번 것의 늦은 답이 방금 누른 것을 지워버립니다. 도장을 앞에 붙여 막습니다. */
+  var 페이지도장 = new Date().getTime().toString(36) + Math.random().toString(36).slice(2, 8);
+  var 누름번호 = 0;
+  function 새번호표() { 누름번호++; return 페이지도장 + '-' + 누름번호; }
+
+  /** 적는 데 성공하면 번호표를, 실패하면 null 을 돌려줍니다. */
   function pendAdd(ab, d, n, v) {
     var o = pendAll();
-    o[ab + '|' + d + '|' + n] = { ab: ab, d: d, n: n, v: v, t: new Date().getTime() };
-    pendPut(o);
+    if (수첩못읽음) return null;                    // 못 적었습니다 — 거짓말하지 않습니다
+    var rev = 새번호표();
+    o[ab + '|' + d + '|' + n] = { ab: ab, d: d, n: n, v: v, r: rev, t: new Date().getTime() };
+    return pendPut(o) ? rev : null;
   }
   function pendDone(ab, d, n) {
     var o = pendAll();
     delete o[ab + '|' + d + '|' + n];
     pendPut(o);
+  }
+
+  /* 수첩에서 지울 때 **보낸 값과 적힌 값이 같은지** 먼저 봅니다.
+     열쇠가 '반|날짜|이름' 뿐이라, 늦게 도착한 옛 응답이
+     방금 누른 새 값을 지워버리는 일이 있었습니다.
+     (O 를 눌렀다가 곧바로 X 로 고쳤는데, O 의 응답이 뒤늦게 와서 X 가 사라지는 식) */
+  function pendDoneIf(ab, d, n, v, rev) {
+    var o = pendAll(), k = ab + '|' + d + '|' + n, cur = o[k];
+    if (!cur) return;
+    // 번호표가 있으면 번호표로, 없으면(옛 기록) 값으로 견줍니다
+    if (rev != null && cur.r != null) { if (cur.r !== rev) return; }
+    else if (cur.v !== v) return;
+    delete o[k];
+    pendPut(o);
+    화면에서_기다림표시_지우기(ab, d, n, cur.v);
+  }
+
+  /** 밀린 것이 뒤늦게 저장됐을 때, 화면에 남은 노란 테두리도 같이 지웁니다.
+      (이게 없으면 저장이 됐는데도 테두리가 영영 남아 선생님이 불안해합니다)
+
+      주의 두 가지 —
+      ① **지금 보고 있는 반이 그 반일 때만** 손댑니다. 같은 날짜·같은 이름이
+         다른 반에도 있으면 엉뚱한 반의 칸을 고칠 뻔했습니다.
+      ② 학생 이름을 찾는 글귀에 **끼워 넣지 않습니다.** 이름에 이상한 글자가 있으면
+         찾기가 깨지는데, 그 깨짐이 재전송 줄을 통째로 멈추게 했습니다. */
+  function 화면에서_기다림표시_지우기(ab, d, n, v) {
+    try {
+      if (!CUR || CUR.ab !== ab) return;          // 지금 그 반 화면이 아니면 할 일 없음
+      var tds = document.querySelectorAll('td.cell[data-d="' + d + '"]');
+      for (var i = 0; i < tds.length; i++) {
+        if (tds[i].getAttribute('data-n') !== n) continue;   // 이름은 여기서 견줍니다
+        tds[i].classList.remove('wait');
+        if (v != null) tds[i].setAttribute('data-saved', v);
+      }
+    } catch (e) { /* 화면 정리가 실패해도 저장에는 지장이 없어야 합니다 */ }
   }
 
   var doneTimer;
@@ -638,23 +711,61 @@ var API = window.HYOJIN_API;
     }
   }
 
-  /** 못 보낸 것이 있으면 다시 보냅니다 (페이지를 열 때) */
+  /** 못 보낸 것이 있으면 다시 보냅니다 (페이지를 열 때)
+      예전에는 밀린 것을 **한꺼번에** 쏘았습니다. 20개가 밀려 있으면 20발이 동시에 나가
+      구글 서버가 오히려 느려졌습니다. 이제 **하나 끝나면 다음 하나**로 갑니다. */
+  var 다시보내는중 = false;
   function pendReplay() {
+    if (다시보내는중) return;          // 이미 돌고 있으면 또 시작하지 않습니다
+
+    // 3일 지난 것은 먼저 버립니다
     var o = pendAll(), now = new Date().getTime(), changed = false;
     Object.keys(o).forEach(function (k) {
-      var p = o[k];
-      if (now - (p.t || 0) > MAXAGE) { delete o[k]; changed = true; return; }
-      ask({ api: 'mark', ab: p.ab, date: p.d, student: p.n, mark: p.v }, function (r) {
-        if (r && r.ok) pendDone(p.ab, p.d, p.n);
-      }, function () {});
+      if (now - (o[k].t || 0) > MAXAGE) { delete o[k]; changed = true; }
     });
     if (changed) pendPut(o);
-    paintPend();
+
+    // 번호표가 없는 옛 기록(지난 판에서 남은 것)에 번호표를 달아 둡니다.
+    // 안 그러면 값으로만 견주게 되어 'O→X→O' 문제가 그대로 남습니다.
+    var o2 = pendAll(), 번호달았나 = false;
+    Object.keys(o2).forEach(function (k) {
+      if (o2[k] && o2[k].r == null) { o2[k].r = 새번호표(); 번호달았나 = true; }
+    });
+    if (번호달았나) pendPut(o2);
+
+    var 열쇠들 = Object.keys(pendAll());
+    if (!열쇠들.length) { paintPend(); return; }
+    다시보내는중 = true;
+
+    (function 다음(i) {
+      if (i >= 열쇠들.length) { 다시보내는중 = false; paintPend(); return; }
+      var p = pendAll()[열쇠들[i]];
+      if (!p) return 다음(i + 1);                 // 그 사이 지워졌으면 건너뜁니다
+      function 이어서() { setTimeout(function () { 다음(i + 1); }, 150); }
+      ask({ api: 'mark', ab: p.ab, date: p.d, student: p.n, mark: p.v }, function (r) {
+        // try 로 감싸는 까닭 — 여기서 잘못되면 이어서() 에 못 가고
+        // 다시보내는중 이 true 로 굳어 **그 뒤 재전송이 영영 안 돕니다.**
+        try { if (r && r.ok) pendDoneIf(p.ab, p.d, p.n, p.v, p.r); } catch (e) {}
+        이어서();
+      }, function () {
+        이어서();                                  // 하나 실패해도 나머지는 계속합니다
+      });
+    })(0);
   }
 
-  /** 창을 닫는 순간, 남은 것을 끊기지 않는 방식으로 한 번 더 밀어냅니다 */
+  /** 창을 닫는 순간, 남은 것을 끊기지 않는 방식으로 한 번 더 밀어냅니다.
+
+      이 방식(no-cors)은 **답을 읽을 수 없습니다.** 그래서 보냈는지 알 수 없고,
+      수첩에서 지우지도 못합니다. 그게 정상입니다 — 확인은 다음에 열 때 pendReplay 가 합니다.
+      문제는 딴 앱으로 갔다 올 때마다 이게 다시 돌아서, 앱을 다섯 번 오가면
+      같은 것을 다섯 번 쏘았다는 점입니다. 이제 **1분에 한 번만** 나갑니다. */
+  var 마지막밀어냄 = 0;
   function pendFlush() {
     var o = pendAll();
+    if (!Object.keys(o).length) return;
+    var 지금 = new Date().getTime();
+    if (지금 - 마지막밀어냄 < 60000) return;
+    마지막밀어냄 = 지금;
     Object.keys(o).forEach(function (k) {
       var p = o[k];
       var url = API + (API.indexOf('?') < 0 ? '?' : '&')
@@ -668,6 +779,8 @@ var API = window.HYOJIN_API;
   window.addEventListener('pagehide', pendFlush);
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'hidden') pendFlush();
+    // 돌아왔을 때는 답을 읽을 수 있는 쪽으로 다시 보냅니다 (이쪽이라야 수첩이 비워집니다)
+    else pendReplay();
   });
 
   /* 터치는 즉시 반영하고 저장은 뒤에서 합니다.
@@ -680,42 +793,78 @@ var API = window.HYOJIN_API;
 
     td.textContent = next;
     td.style.background = COLOR[next] || '#fff';
+    td.classList.remove('wait');      // 다시 눌렀으니 '아직 안 감' 표시는 지웁니다
     td.classList.add('busy');
 
     var d = td.getAttribute('data-d'), n = td.getAttribute('data-n');
-    var key = d + '|' + n;
+    // **누른 순간의 반**을 여기서 붙잡습니다. 0.2초 뒤에 보내는데, 그 사이에
+    // 뒤로 가거나 다른 반으로 옮길 수 있어서 그때 CUR 을 다시 보면 엉뚱해집니다.
+    var 반 = CUR.ab;
+    var key = 반 + '|' + d + '|' + n;              // 회차 열쇠에도 반을 넣습니다
     saveTurn[key] = (saveTurn[key] || 0) + 1;
     var turn = saveTurn[key];
 
-    pendAdd(CUR.ab, d, n, next);                   // ★ 먼저 적어둡니다
+    var rev = pendAdd(반, d, n, next);             // ★ 먼저 적어둡니다 (번호표를 받아 둡니다)
+    if (rev === null) {
+      // 이 기기에 못 적었습니다. "다음에 열면 다시 보냅니다" 는 이 경우 거짓말입니다.
+      toast('이 기기에 임시 저장을 못 했습니다 — 지금 저장이 안 되면 다시 눌러 주세요.', true);
+    }
 
     clearTimeout(td._timer);
-    td._timer = setTimeout(function () { sendMark(td, key, turn); }, 200);
+    td._timer = setTimeout(function () { sendMark(td, 반, key, turn, rev); }, 200);
   }
 
-  function sendMark(td, key, turn) {
+  function sendMark(td, 반, key, turn, rev) {
     var d = td.getAttribute('data-d'), n = td.getAttribute('data-n');
     var val = td.textContent.trim();
 
-    ask({ api: 'mark', ab: CUR.ab, date: d, student: n, mark: val }, function (r) {
+    ask({ api: 'mark', ab: 반, date: d, student: n, mark: val }, function (r) {
       if (turn !== saveTurn[key]) return;          // 그 사이 또 눌렀으면 이 응답은 버립니다
       td.classList.remove('busy');
-      if (!r || !r.ok) return undo(td, (r && r.msg) || '저장하지 못했습니다.');
-      pendDone(CUR.ab, d, n);                      // ★ 서버가 확인해줘야 지웁니다
+      // 서버가 "안 된다" 고 **말한 것**만 되돌립니다.
+      // r 은 왔는데 ok 칸이 아예 없는 답은 "거절" 이 아니라 "모르겠음" 이라 그냥 둡니다.
+      if (!r || typeof r.ok === 'undefined') return 보류(td, '서버 응답이 이상합니다.', rev !== null);
+      if (!r.ok) return undo(td, 반, r.msg || '저장하지 못했습니다.');
+      pendDoneIf(반, d, n, val, rev);               // ★ 그 누름이 그대로일 때만 지웁니다
+      td.classList.remove('wait');
       td.setAttribute('data-saved', val);
-      (MONTH.students || []).forEach(function (s) {
-        if (s.n !== n) return;
-        s.marks.forEach(function (m) { if (m.d === d) m.m = val; });
-      });
+      // 그 사이 다른 반으로 갔으면 **그 반의 자료를 건드리면 안 됩니다.**
+      // (같은 날짜·같은 이름이 다른 반에도 있을 수 있습니다)
+      if (CUR && CUR.ab === 반 && MONTH) {
+        (MONTH.students || []).forEach(function (s) {
+          if (s.n !== n) return;
+          (s.marks || []).forEach(function (m) { if (m.d === d) m.m = val; });
+        });
+      }
     }, function (e) {
       if (turn !== saveTurn[key]) return;
-      td.classList.remove('busy');
-      undo(td, '저장하지 못했습니다: ' + e.message);
+      // ⚠️ 여기가 제일 중요합니다.
+      // 예전에는 여기서도 undo() 를 불렀습니다. 그런데 이 자리는
+      // "서버가 거절했다" 가 아니라 **"답이 아직 안 왔다"** 일 뿐입니다.
+      // 되돌려 버리면 선생님이 눌러 둔 출석이 화면에서도 수첩에서도 사라졌습니다.
+      // 이제는 표시를 그대로 두고, 다음에 열 때 다시 보냅니다.
+      보류(td, '아직 저장 중입니다 (' + e.message + ')', rev !== null);
     });
   }
 
-  function undo(td, msg) {
-    pendDone(CUR.ab, td.getAttribute('data-d'), td.getAttribute('data-n'));
+  /** 답이 안 왔을 뿐입니다 — 화면 표시도, 수첩도 **그대로 둡니다.**
+      테두리만 노랗게 해서 "아직 안 갔다" 는 것만 알립니다. */
+  function 보류(td, msg, 적어뒀나) {
+    td.classList.remove('busy');
+    td.classList.add('wait');
+    // 이 기기에 적어두지도 못했으면 "다음에 다시 보냅니다" 는 **거짓말**입니다.
+    // 보낼 것이 남아 있지 않으니 다시 보낼 수도 없습니다. 그때는 다시 누르시라고 합니다.
+    toast(msg + (적어뒀나 === false
+      ? ' — 이 기기에 적어두지도 못했습니다. 다시 눌러 주세요.'
+      : ' — 표시는 그대로 두었습니다. 다음에 열면 다시 보냅니다.'), true);
+    paintPend();
+  }
+
+  /** 서버가 **거절했을 때만** 되돌립니다 */
+  function undo(td, 반, msg) {
+    td.classList.remove('wait');
+    // 지금 보고 있는 반이 아니라 **보낼 때의 반**에서 지웁니다
+    pendDone(반 || (CUR && CUR.ab), td.getAttribute('data-d'), td.getAttribute('data-n'));
     var back = td.getAttribute('data-saved') || '';
     td.textContent = back;
     td.style.background = COLOR[back] || '#fff';
