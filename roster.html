@@ -425,7 +425,7 @@ var API = window.HYOJIN_API;
         if (!r || !r.ok) return;
         MCACHE[k] = { t: new Date().getTime(), data: applyPending(r, CUR.ab) };
         // 명단을 보고 있는데 이번 달엔 납부 정보가 없었다면, 이제 채워서 다시 그립니다
-        if (TAB === 'roster' && MONTH && !MONTH.hasPay && r.hasPay) render();
+        if (TAB === 'roster' && r.hasPay) render();   // 다음 달 자료가 늦게 와도 다시 그립니다
       }, function () {});
     });
   }
@@ -452,9 +452,20 @@ var API = window.HYOJIN_API;
   /* 납부 정보는 학원이 "다음 달분"을 미리 청구하는 달이 있어서,
      이번 달에 없으면 미리 받아둔 다음 달 것을 씁니다. */
   function paySource() {
-    if (MONTH && MONTH.hasPay) return { data: MONTH, ym: YM };
     var nx = MCACHE[mkey(CUR.ab, ymShift(YM, 1))];
-    if (nx && nx.data && nx.data.hasPay) return { data: nx.data, ym: ymShift(YM, 1) };
+    var nxOk = !!(nx && nx.data && nx.data.hasPay);
+
+    // 달 마지막 주(25일부터)에는 **다음 달 수강료**를 걷는 철입니다.
+    //   그때 이번 달 것을 보여주면 이미 다 받은 달이라 쓸모가 없어서,
+    //   다음 달 것을 먼저 찾습니다. (배지에 '10월 미납' 처럼 달이 함께 나옵니다)
+    //   지난 달을 들여다볼 때는 그대로 그 달 것을 보여줍니다.
+    var 오늘 = new Date();
+    var 이번달 = 오늘.getFullYear() + '-' + ('0' + (오늘.getMonth() + 1)).slice(-2);
+    var 걷는철 = (YM === 이번달 && 오늘.getDate() >= 25);
+
+    if (걷는철 && nxOk) return { data: nx.data, ym: ymShift(YM, 1) };
+    if (MONTH && MONTH.hasPay) return { data: MONTH, ym: YM };
+    if (nxOk) return { data: nx.data, ym: ymShift(YM, 1) };
     return null;
   }
 
