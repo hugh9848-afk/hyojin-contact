@@ -60,11 +60,16 @@ def stop(why,r):
 if '\tdevice' not in sh('devices').stdout:
     print('폰이 안 붙었습니다'); sys.exit(1)
 POS={}
+def same(name,r):
+    """상태메시지가 붙어 두 줄로 읽히는 경우가 있어 양쪽으로 견줍니다"""
+    for t,_,_ in items(r):
+        if len(t)>=4 and (t.startswith(name) or name.startswith(t)): return True
+    return False
 def one(name,xy,chk):
     """돌려주는 값: True 성공 / False 이름이 달라 그만둠"""
     tap(xy)
     r=dump()
-    if not any(t.startswith(name) for t,_,_ in items(r)):
+    if not same(name,r):
         for _ in range(2):
             c=find(r,'닫기')
             if c: tap(c,0.4)
@@ -98,7 +103,11 @@ while True:
     sig='|'.join(t for t,_,_ in items(r))
     cand=[(t,x,y) for t,x,y in items(r) if NAME.match(t)]
     if LIST:
-        for t,_,_ in cand:
+        rows={}
+        for t,x,y in cand:
+            k=round(y/20.0)
+            if k not in rows or len(t)<len(rows[k]): rows[k]=t
+        for t in rows.values():
             if t not in seen:
                 seen.add(t); print('  %-22s (%d)'%(t,len(seen)))
         if sig==prev: print('\n맨 아래에 닿았습니다'); break
@@ -107,9 +116,11 @@ while True:
         if sig==prev: print('\n더 찾을 사람이 없습니다'); break
         prev=sig; scroll(); continue
     prev=None
-    uniq={}
-    for t,x,y in cand: uniq.setdefault(t,(x,y))
-    batch=sorted(((t,xy) for t,xy in uniq.items()), key=lambda e:-e[1][1])   # 아래쪽부터
+    rows={}
+    for t,x,y in cand:                      # 한 줄에서 여러 글자가 읽히면 짧은 쪽(= 순수한 이름)을 씁니다
+        k=round(y/20.0)
+        if k not in rows or len(t)<len(rows[k][0]): rows[k]=(t,(x,y),y)
+    batch=[(t,xy) for t,xy,_ in sorted(rows.values(), key=lambda e:-e[2])]   # 아래쪽부터
     for name,xy in batch:
         done+=1
         chk=(done%EVERY==1)
