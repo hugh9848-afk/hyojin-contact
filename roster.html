@@ -165,13 +165,13 @@ var API = window.HYOJIN_API;
   var DOW    = ['일','월','화','수','목','금','토'];
   var CYCLE  = ['', 'O', '영상', 'X'];
 
-  /* 선생님이 고칠 수 있는 기간: 수업일 ~ 그 다음 월요일까지
+  /* 선생님이 고칠 수 있는 기간: 수업일 ~ 그 다음 월요일 + 2일(수요일)까지 (2026-10-06 변경)
      (서버의 canEditDate_ 와 똑같은 규칙입니다) */
   function mondayAfter(ds) {
     var p = ds.split('-'), dt = new Date(+p[0], +p[1] - 1, +p[2]);
     var add = (8 - dt.getDay()) % 7;
     if (add === 0) add = 7;                 // 그 날이 월요일이면 다음 주 월요일
-    dt.setDate(dt.getDate() + add);
+    dt.setDate(dt.getDate() + add + 2);     // 다음 월요일 + 2일 = 수요일
     return dt.getFullYear() + '-' + ('0' + (dt.getMonth() + 1)).slice(-2)
          + '-' + ('0' + dt.getDate()).slice(-2);
   }
