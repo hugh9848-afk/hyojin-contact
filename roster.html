@@ -184,37 +184,115 @@ var API = window.HYOJIN_API;
   var COLOR  = { 'O':'#d9ead3', '영상':'#cfe2f3', 'X':'#f4cccc', '':'#ffffff' };
 
   /* ── 서버와 이야기하기 (JSONP) ─────────────────────── */
+  /*  구글 앱스스크립트는 같은 계정 요청을 한 줄로 세워 처리합니다.
+      화면이 여러 개를 한꺼번에 보내면 스스로 줄을 길게 만드는 셈이라,
+      **명단 읽기(api=month)만** 한 번에 하나씩 보냅니다.
+      저장·휴강·일괄출석·결석확인은 지금처럼 바로 보냅니다. (2026-10-07) */
   var seq = 0;
+  var READ_QUEUE = [];
+  var READ_BUSY = false;
 
-  /* 구글 서버가 자다 깨느라 첫 요청이 늦을 때가 있어 한 번 더 시도합니다.
-     단 '결석확인'은 메일이 나가므로 다시 보내지 않습니다. */
-  function ask(params, ok, fail) {
-    // 결석확인은 메일을 보내느라 오래 걸립니다. 넉넉히 기다리고, 다시 보내지 않습니다.
-    var wait = (params.api === 'absent') ? 120000 : 30000;
-    askOnce(params, ok, function (e) {
-      if (params.api === 'absent') return fail(e);
-      askOnce(params, ok, fail, wait);
-    }, wait);
+  function askError(message, kind) {
+    var e = new Error(message);
+    e.kind = kind;
+    return e;
   }
 
-  function askOnce(params, ok, fail, waitMs) {
-    var name = '__hj_' + (++seq);
-    var s = document.createElement('script'), timer;
-    function cleanup() {
-      clearTimeout(timer);
-      try { delete window[name]; } catch (e) { window[name] = undefined; }
-      if (s.parentNode) s.parentNode.removeChild(s);
+  function readPump() {
+    var job;
+    if (READ_BUSY || !READ_QUEUE.length) return;
+    READ_BUSY = true;
+    job = READ_QUEUE.shift();
+    job(function () { READ_BUSY = false; readPump(); });
+  }
+
+  /*  다시 보내기 규칙 — 함부로 늘리면 줄만 길어집니다.
+      · 시간이 다 돼서 끊은 경우는 **다시 보내지 않습니다.**
+        JSONP 는 script 태그라 요청을 취소할 수 없어서, 다시 보내면 둘이 겹칩니다.
+      · 연결 자체가 끊긴 경우(onerror)만, 그것도 **명단 읽기만** 한 번 더 봅니다.
+      · 결석확인은 메일이 나가므로 어떤 경우에도 다시 보내지 않습니다. */
+  function ask(params, ok, fail, options) {
+    var opt = options || {};
+    var tries = 0;
+    var maxTries = (params.api === 'month' && opt.retry !== false) ? 2 : 1;
+    var waitMs = opt.waitMs || 90000;
+    var ended = false;
+
+    function succeed(res) { if (!ended) { ended = true; ok(res); } }
+
+    function failed(err) {
+      if (ended) return;
+      if (err && err.kind === 'network' && tries < maxTries) {
+        setTimeout(run, 3000);
+        return;
+      }
+      ended = true;
+      fail(err);
     }
-    window[name] = function (res) { cleanup(); ok(res); };
-    s.onerror = function () { cleanup(); fail(new Error('연결하지 못했습니다')); };
-    timer = setTimeout(function () { cleanup(); fail(new Error('시간이 오래 걸립니다')); }, waitMs || 30000);
-    var q = ['v=' + encodeURIComponent(V)];
-    for (var k in params) {
-      if (params.hasOwnProperty(k)) q.push(encodeURIComponent(k) + '=' + encodeURIComponent(params[k]));
+
+    function slow() { if (!ended && opt.onSlow) opt.onSlow(); }
+
+    function run() {
+      if (ended) return;
+      tries++;
+      askOnce(params, succeed, failed, waitMs, slow);
     }
-    q.push('callback=' + name);
-    s.src = API + (API.indexOf('?') < 0 ? '?' : '&') + q.join('&');
-    document.body.appendChild(s);
+    run();
+  }
+
+  /*  script 태그를 지워도 요청 자체는 취소되지 않습니다.
+      그래서 시간이 다 됐을 때 콜백 이름을 지우지 않고 **빈 함수로 바꿔** 늦은 답을 삼킵니다.
+      그래야 한참 뒤에 도착한 옛 답이 지금 보는 화면을 덮어쓰지 못합니다. */
+  function askOnce(params, ok, fail, waitMs, onSlow) {
+    function 보내기(next) {
+      var name = '__hj_' + (++seq);
+      var s = document.createElement('script');
+      var timer, slowTimer, done = false;
+
+      function forgetCallback() {
+        try { delete window[name]; } catch (ignore) { window[name] = undefined; }
+      }
+
+      function finish(err, res, timedOut) {
+        if (done) return;
+        done = true;
+        clearTimeout(timer); clearTimeout(slowTimer);
+        if (s.parentNode) s.parentNode.removeChild(s);
+
+        if (timedOut) {
+          window[name] = function () {};              // 늦게 온 답은 여기서 조용히 끝납니다
+          setTimeout(forgetCallback, 5 * 60 * 1000);
+        } else {
+          forgetCallback();
+        }
+        try { if (err) fail(err); else ok(res); }
+        finally { if (next) next(); }
+      }
+
+      window[name] = function (res) { finish(null, res, false); };
+      s.onerror = function () { finish(askError('연결하지 못했습니다', 'network'), null, false); };
+      slowTimer = setTimeout(function () { if (!done && onSlow) onSlow(); }, 15000);
+      timer = setTimeout(function () {
+        finish(askError('서버가 답하지 않습니다. 잠시 뒤 다시 불러와 주세요.', 'timeout'), null, true);
+      }, waitMs || 90000);
+
+      var q = ['v=' + encodeURIComponent(V)], k;
+      for (k in params) {
+        if (params.hasOwnProperty(k)) {
+          q.push(encodeURIComponent(k) + '=' + encodeURIComponent(params[k]));
+        }
+      }
+      q.push('callback=' + name);
+      s.src = API + (API.indexOf('?') < 0 ? '?' : '&') + q.join('&');
+      document.body.appendChild(s);
+    }
+
+    if (params.api === 'month') {        // 명단 읽기만 줄을 섭니다
+      READ_QUEUE.push(보내기);
+      readPump();
+    } else {
+      보내기(null);                       // 저장·휴강·일괄출석·결석확인은 바로
+    }
   }
 
   var tt;
@@ -368,10 +446,11 @@ var API = window.HYOJIN_API;
     fetchMonth();
   }
 
-  /* 한 번 받아온 달은 기억해 둡니다. 앞뒤 달은 미리 받아둬서
-     ◀ ▶ 를 눌렀을 때 기다리지 않게 합니다. */
+  /*  한 번 받아온 달은 기억해 둡니다.
+      앞뒤 달 미리받기를 그만뒀으므로(아래 prefetch 참고) 조금 더 오래 씁니다. */
   var MCACHE = {};
-  var FRESH  = 180000;   // 3분
+  var FRESH  = 600000;   // 10분
+  var MONTH_VIEW = 0;    // 화면이 바뀔 때마다 1씩 올립니다 (늦은 답을 가려내려고)
   function mkey(ab, ym) { return ab + '|' + ym; }
 
   /* 서버가 아직 모르는 내 최근 터치를 화면에 덮어씌웁니다.
@@ -389,46 +468,57 @@ var API = window.HYOJIN_API;
     return data;
   }
 
-  function fetchMonth() {
-    var k = mkey(CUR.ab, YM), c = MCACHE[k];
-    if (c && (new Date().getTime() - c.t) < FRESH) {
-      MONTH = applyPending(c.data, CUR.ab);
-      render();
-      prefetch();
+  /* 지금 보고 있는 화면이 맞는지 — 늦게 온 답이 엉뚱한 반을 덮지 않게 */
+  function monthIsCurrent(view, ab, ym) {
+    return view === MONTH_VIEW && CUR && CUR.ab === ab && YM === ym;
+  }
+
+  function showMonthError(message) {
+    $('body').innerHTML = tabsHtml()
+      + '<div class="card"><div class="msg err">' + esc(message) + '</div>'
+      + '<p style="text-align:center;margin:12px 0 2px">'
+      + '<button type="button" id="monthRetry" style="padding:11px 20px;border-radius:9px;'
+      + 'border:0;background:#2f6f4f;color:#fff;font-size:15px;font-weight:700">다시 불러오기</button>'
+      + '</p></div>';
+    bindTabs();
+    $('monthRetry').onclick = function () { fetchMonth(true); };
+  }
+
+  function fetchMonth(force) {
+    var ab = CUR.ab, ym = YM;
+    var view = ++MONTH_VIEW;
+    var k = mkey(ab, ym), c = MCACHE[k];
+
+    if (!force && c && (new Date().getTime() - c.t) < FRESH) {
+      if (monthIsCurrent(view, ab, ym)) { MONTH = applyPending(c.data, ab); render(); }
       return;
     }
-    ask({ api: 'month', ab: CUR.ab, ym: YM }, function (r) {
-      if (!r || !r.ok) {
-        MONTH = null;
-        $('body').innerHTML = tabsHtml()
-          + '<div class="card"><div class="msg err">' + esc((r && r.msg) || '불러오지 못했습니다.') + '</div></div>';
-        bindTabs();
-        return;
-      }
-      MCACHE[k] = { t: new Date().getTime(), data: r };
-      MONTH = applyPending(r, CUR.ab);
+
+    ask({ api: 'month', ab: ab, ym: ym }, function (r) {
+      if (r && r.ok) MCACHE[k] = { t: new Date().getTime(), data: r };
+      if (!monthIsCurrent(view, ab, ym)) return;     // 그새 다른 반·달로 옮겼으면 버립니다
+      if (!r || !r.ok) { MONTH = null; showMonthError((r && r.msg) || '불러오지 못했습니다.'); return; }
+      MONTH = applyPending(r, ab);
       render();
-      prefetch();
     }, function (e) {
-      $('body').innerHTML = tabsHtml()
-        + '<div class="card"><div class="msg err">' + esc(e.message) + '</div></div>';
-      bindTabs();
+      if (!monthIsCurrent(view, ab, ym)) return;
+      showMonthError(e.message);
+    }, {
+      onSlow: function () {
+        if (!monthIsCurrent(view, ab, ym)) return;
+        $('body').innerHTML = tabsHtml()
+          + '<div class="card"><div class="msg">서버 응답을 기다리는 중입니다…</div></div>';
+        bindTabs();
+      }
     });
   }
 
-  /* 화면을 보여준 뒤, 조용히 앞뒤 달을 받아둡니다 */
-  function prefetch() {
-    [ymShift(YM, -1), ymShift(YM, 1)].forEach(function (ym) {
-      var k = mkey(CUR.ab, ym), c = MCACHE[k];
-      if (c && (new Date().getTime() - c.t) < FRESH) return;
-      ask({ api: 'month', ab: CUR.ab, ym: ym }, function (r) {
-        if (!r || !r.ok) return;
-        MCACHE[k] = { t: new Date().getTime(), data: applyPending(r, CUR.ab) };
-        // 명단을 보고 있는데 이번 달엔 납부 정보가 없었다면, 이제 채워서 다시 그립니다
-        if (TAB === 'roster' && r.hasPay) render();   // 다음 달 자료가 늦게 와도 다시 그립니다
-      }, function () {});
-    });
-  }
+  /*  앞뒤 달 미리받기를 그만뒀습니다 (2026-10-07).
+      반 하나 열 때 서버를 3번 부르던 것이 1번이 됩니다.
+      구글은 같은 계정 요청을 한 줄로 세우므로, 미리받기 두 건이 정작 필요한 요청과
+      저장까지 밀어내고 있었습니다. 달을 옮길 때 한 번 기다리는 편이 낫습니다.
+      다른 코드가 불러도 안전하게 아무 일도 하지 않습니다. */
+  function prefetch() { return; }
 
   function tabsHtml() {
     return '<div class="tabs">'
